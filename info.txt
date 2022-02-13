@@ -1,0 +1,1 @@
+go get -u -v github.com/go-swagger/go-swagger/cmd/swagger <- install swagger (might need in makefile)

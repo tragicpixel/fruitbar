@@ -1,0 +1,6 @@
+{
+    "database_user":"postgres",
+    "database_password":"fruitbar",
+    "database_name":"fruitbar",
+    "orders_service_port":"8000"
+}

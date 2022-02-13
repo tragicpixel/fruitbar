@@ -1,0 +1,37 @@
+GOCMD=go
+GOTEST=$(GOCMD) test
+GOVET=$(GOCMD) vet
+
+
+all: 
+
+vendor:
+	$(GOCMD) mod vendor
+
+test:
+	$(GOTEST) -v race ./... $(OUTPUT_OPTIONS)
+#$(GOTEST) -v race ./... $(OUTPUT_OPTIONS)
+
+#ifeq ($(EXPORT_RESULT), true)
+#GO111MODULE=off go get -u github.com/jstemmer/go-junit-report
+#$(eval OUTPUT_OPTIONS = | tee /dev/tty | go-junit-report -set-exit-code > junit-report.xml
+#endif
+#above the above cmd
+
+lint-go:
+	golangci-lint run
+
+build-orders:
+	go build -o orders orders/main.go
+
+build-users:
+	go build -o users users/main.go
+
+
+generate-documentation:
+	swagger generate spec -o ./swagger-orders.json --tags=orders
+	swagger generate spec -o ./swagger-users.json --tags=users
+
+# dont forget to change to correct working dir for each service built
+
+# install dependencies? go get <etc> (do i need this???)

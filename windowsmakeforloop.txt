@@ -1,0 +1,7 @@
+all:
+    @echo off
+    FOR /F "tokens=4 delims=," %%G IN ("deposit,$4500,123.4,12-AUG-09") \
+    DO   \
+    echo Date paid %%G echo 123
+
+^^for loop example in windows for make

@@ -1,0 +1,32 @@
+#docker-compose.yml (base)
+#command: node --inspect=9.9.3.3:2133 ./bin/www
+#No container names so you can scale these services as needed (specifying a container name prevents this)
+version: '1.0'
+services:
+  orders-api:
+    image: fruitbar/orders:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    depends_on:
+      - sqldb
+      - users
+    environment:
+      POSTGRESUSER: fruitbar
+  users-api:
+    image: fruitbar/users:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    restart: unless-stopped
+    depends_on:
+      - sqldb
+  sqldb:
+    image: postgres
+    ports:
+      - "5432:5432"

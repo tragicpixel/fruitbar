@@ -1,32 +1,62 @@
 #docker-compose.yml (base)
-#command: node --inspect=9.9.3.3:2133 ./bin/www
 #No container names so you can scale these services as needed (specifying a container name prevents this)
-version: '1.0'
+#Environment file is used for environment variable configuration, except for service names, they remain in this file
+#(since the service names themselves are in this file; hopefully if a change needs to be made, it will be picked up)
+#(additionally, there are comments noting that if you change the name of the service in this file, you need to change the env var too)
+
+# TODOs:
+#Use env_file instead of environment to define environment variables (also can reuse for each service; db creds etc)
+#healthcheck option??
+#logging option -- specify a logging driver? (this is docker logs? not app logs) max-size, max-file, driver, options
+#consider using long syntaxs in ports to make it more readable
+version: '3'
 services:
-  orders-api:
-    image: fruitbar/orders:${TAG:-latest}
+  fruitbar-ui: # Data Entry Web UI service
+    image: fruitbar/fruitbar-ui:${TAG:-latest}
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: ./fruitbar-ui/Dockerfile
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    depends_on:
+      - orders-api
+      - users-api
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - FRUITBAR_ORDERS_API_SERVICE_NAME=orders-api # The name of the orders API service in this file
+      - FRUITBAR_USERS_API_SERVICE_NAME=users-api # The name of the users API service in this file
+  orders-api: # Orders API service
+    image: fruitbar/orders-api:${TAG:-latest}
     ports:
       - "8000:8000"
+    build:
+      context: .
+      dockerfile: ./cmd/orders/Dockerfile
     restart: unless-stopped
     depends_on:
       - sqldb
-      - users
+      - users-api
     environment:
-      POSTGRESUSER: fruitbar
-  users-api:
-    image: fruitbar/users:${TAG:-latest}
+      - POSTGRESUSER=fruitbar
+      - FRUITBAR_DATABASE_SERVICE_NAME=sqldb # The name of the database service in this file
+  users-api: # Users API service
+    image: fruitbar/users-api:${TAG:-latest}
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: ./cmd/users/Dockerfile
     ports:
       - "8001:8001"
     restart: unless-stopped
     depends_on:
       - sqldb
-  sqldb:
-    image: postgres
+    environment:
+      - POSTGRESUSER=fruitbar
+      - FRUITBAR_DATABASE_SERVICE_NAME=sqldb # The name of the database service in this file
+  sqldb: # The Database service
+    image: fruitbar/sqldb
     ports:
       - "5432:5432"
+    build:
+      context: ./database
+    restart: always

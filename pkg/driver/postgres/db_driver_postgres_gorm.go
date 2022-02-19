@@ -14,9 +14,11 @@ import (
 )
 
 // OpenConnection attempts to open a connection to a postgres database using gorm.
-func OpenConnection(host string, port string, uname string, pass string, dbname string) (*driver.DB, error) {
+func OpenConnection(connectionConfig *PostgresConnectionConfig) (*driver.DB, error) {
 	zaplogger := zapgorm2.New(zap.L())
-	dbinfo := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable", uname, pass, dbname)
+	dbinfo := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable",
+		connectionConfig.Host, connectionConfig.Username, connectionConfig.Password, connectionConfig.Database,
+	)
 	logrus.Info("Opening connection to database: " + dbinfo) // may not want to include user credentials in the log file
 	conn, err := gorm.Open(postgres.Open(dbinfo), &gorm.Config{Logger: zaplogger})
 	if err != nil {

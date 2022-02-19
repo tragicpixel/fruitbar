@@ -5,17 +5,12 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY ./cmd/orders .
+COPY ./cmd/users .
 WORKDIR /app/pkg
 COPY ./pkg .
 WORKDIR /app
 RUN go build -o main .
 
-# I think expose should only be used in dev??
-EXPOSE 8000
+EXPOSE 8001
 
 CMD ["./main"]
-
-# additional steps for prod after completing dev steps (?)
-#FROM dev AS prod
-#WORKDIR /app

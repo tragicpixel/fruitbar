@@ -1,33 +1,59 @@
-#IMAGE_NAME := orders
-SHELL=bash
-#shell=cmd (perhaps change things to use cmd, or also provide a bash version??)
+#################
+# DOCUMENTATION #
+#################
 
-# Modufy
-ifdef OS
-   RM = del /Q
-   FixPath = $(subst /,\,$1)
-else
-   ifeq ($(shell uname), Linux)
-      RM = rm -f
-      FixPath = $1
-   endif
-endif
+# TODO: generate and store go docs???
 
-# $(RM) $(call FixPath,objs/*)
+# TODO: check that swagger is installed, if not download and install
+docs-openapi:
+	swagger generate spec -o ./swagger-orders.json --tags=orders
+	swagger generate spec -o ./swagger-users.json --tags=users
 
-BUILDDIR = cmd
+docs: docs-openapi
 
-ORDERSDIR = orders
-USERSDIR = users
+########
+# TEST #
+########
 
-BUILDDIRS = $(ORDERSDIR) $(USERSDIR)
+# TODO: Lint for javascript? (or RSX)
 
-DBDIR = database
+test-runtests:
+	go test ./...
 
-SUBDIRS = $(ORDERSDIR) $(USERSDIR) $(DBDIR)
+test-coverage:
+	go test -cover ./...
 
-build-dev:
+# TODO: check that golangci-lint is installed, if not download and install
+test-lintgo:
+	golangci-lint run
+
+test: test-coverage test test-lintgo
+
+#########
+# BUILD #
+#########
+
+# TODO: multi-stage builds
+# TODO: version number tags for builds
+
+build-verifydeps:
+	go mod tidy
+	go mod verify
+
+build-vendor:
+	go mod vendor
+
+build-images:
 	docker-compose build
+
+build: build-verifydeps build-vendor build-images
+
+#######
+# RUN #
+#######
+
+# TODO: run/stop by multi-stage
+# ->> perhaps make a generic run command with variables for stage, and then indiv command utilizing the generic command
 
 run:
 	docker-compose up -d
@@ -37,19 +63,3 @@ stop:
 	docker-compose stop
 	docker-compose down --rmi local
 	docker-compose rm -f
-
-api-docs:
-	swagger generate spec -o ./swagger-orders.json --tags=orders
-	swagger generate spec -o ./swagger-users.json --tags=users
-
-lint-go:
-	golangci-lint run
-# need to modify this to use config to ignore 'structcheck' 'body' not used errors
-
-# this works: just use this as an example (need to be in bash shell, wont work for windows--separate windows version??)
-all:
-	cd $(BUILDDIR)
-	for i in $(BUILDDIRS);\
-	do \
-		( cd $$i ; make build); \
-	done

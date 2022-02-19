@@ -40,10 +40,11 @@ func getUsersHealthCheckApiAllowedHttpMethods() []string {
 
 // NewUsersService creates a new instance of an authentication service.
 // Returns nil on error.
-func NewUsersService(port int) (*UsersService, error) {
+func NewUsersService(port int, connection *pgdriver.PostgresConnectionConfig) (*UsersService, error) {
 	s := UsersService{}
 
-	db, err := pgdriver.OpenConnection("localhost", "5423", "postgres", "fruitbar", "fruitbar")
+	// sqldb is service name of postgres container in docker-compose
+	db, err := pgdriver.OpenConnection(connection)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to the user service database: %s", err.Error())
 	}

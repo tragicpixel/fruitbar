@@ -51,10 +51,11 @@ func getHealthCheckApiAllowedHttpMethods() []string {
 
 // NewOrdersService creates a new instance of a data entry service.
 // Returns nil on error.
-func NewOrdersService(port int) (*OrdersService, error) {
+func NewOrdersService(port int, connection *pgdriver.PostgresConnectionConfig) (*OrdersService, error) {
 	s := OrdersService{}
 
-	db, err := pgdriver.OpenConnection("localhost", "5423", "postgres", "fruitbar", "fruitbar")
+	// sqldb is service name of postgres container in docker-compose
+	db, err := pgdriver.OpenConnection(connection)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to the orders service database: %s", err.Error())
 	}

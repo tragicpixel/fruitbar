@@ -16,6 +16,8 @@ services:
     build:
       context: .
       dockerfile: ./fruitbar-ui/Dockerfile
+    networks:
+      - frontend
     ports:
       - "3000:3000"
     restart: unless-stopped
@@ -33,6 +35,9 @@ services:
     build:
       context: .
       dockerfile: ./cmd/orders/Dockerfile
+    networks:
+      - frontend
+      - backend
     restart: unless-stopped
     depends_on:
       - sqldb
@@ -45,6 +50,9 @@ services:
     build:
       context: .
       dockerfile: ./cmd/users/Dockerfile
+    networks:
+      - frontend
+      - backend
     ports:
       - "8001:8001"
     restart: unless-stopped
@@ -55,8 +63,20 @@ services:
       - FRUITBAR_DATABASE_SERVICE_NAME=sqldb # The name of the database service in this file
   sqldb: # The Database service
     image: fruitbar/sqldb
+    networks:
+      - backend
     ports:
-      - "5432:5432"
+      - "5433:5432" # port is off by one so you can access via pgadmin easily if you have a local postgres installation running
+    volumes:
+      - sqldb-data:/var/lib/postgresql/data
     build:
       context: ./database
     restart: always
+volumes:
+  sqldb-data:
+    driver: local
+networks:
+  frontend:
+    name: frontend
+  backend:
+    name: backend

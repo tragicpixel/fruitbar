@@ -8,6 +8,8 @@ Import Order
 - Level 2: Imports from this project
 - Level 3: Third party imports
 
+Each level separated by an empty line.
+
 Naming Constants
 ----------------
 Don't use all caps and underscores.

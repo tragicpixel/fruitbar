@@ -2,3 +2,5 @@
 *.log
 *.txt
 vendor/
+godoc.html
+swagger-*.json

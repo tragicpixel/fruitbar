@@ -1,4 +1,9 @@
 .dockerignore
 .gitignore
 Dockerfile
-README.md
+node_modules
+build
+npm-debug.log
+**/.git
+**/.DS_Store
+**/node_modules

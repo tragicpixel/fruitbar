@@ -1,3 +1,4 @@
+// Command users starts the users API service.
 package main
 
 import (

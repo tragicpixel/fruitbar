@@ -1,3 +1,4 @@
+// Command orders starts the orders API service.
 package main
 
 import (
@@ -14,7 +15,6 @@ import (
 func main() {
 	logrus.SetFormatter(&logrus.JSONFormatter{})
 
-	// Unless you set these on your local machine, the service won't be able to run...but you should be running it in docker.
 	connection := pgdriver.PostgresConnectionConfig{
 		Host:     os.Getenv("FRUITBAR_DATABASE_SERVICE_NAME"),
 		Port:     "5423",
@@ -23,6 +23,7 @@ func main() {
 		Password: "fruitbar",
 	}
 
+	// TODO: Wait time + Retry count for connecting to DB, don't just immediately fail.
 	FruitBarOrdersService, err := service.NewOrdersService(8000, &connection)
 	if err != nil {
 		logrus.Error("failed to create the orders service:" + err.Error())

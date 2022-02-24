@@ -1,6 +1,6 @@
 // Package fruitbar Fruitbar API
 //
-// the purpose is fruitbar
+// Allows access to an API for managing fruit orders, product listings, and users.
 //
 //   version: 1.0.0
 //   title: Fruitbar Authentication Service

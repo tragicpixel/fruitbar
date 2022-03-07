@@ -80,13 +80,27 @@ func (h *Order) CreateOrder(w http.ResponseWriter, r *http.Request) {
 					order.Total = order.Subtotal + order.Tax
 					logrus.Info("Calculated order subtotal, tax, total")
 					logrus.Info(fmt.Sprintf("Trying to insert new Order: %+v", order))
-					createdId, err := h.repo.Create(&order)
+					orderID, itemIds, err := h.repo.Create(&order)
 					if err != nil {
 						logrus.Error(fmt.Sprintf("Error inserting Order %+v into database: %s", order, err.Error()))
 						response = utils.JsonResponse{Error: &utils.JsonErrorResponse{Code: http.StatusInternalServerError, Message: "Failed to create new order."}}
-					} else {
-						logrus.Info(fmt.Sprintf("Successfully inserted new order: %+v", order))
-						response = utils.JsonResponse{Data: []*models.Order{&order}, Id: strconv.Itoa(int(createdId))}
+					} else { // order succesfully created
+						// Update the newly created items' order ids
+						// Could also get items by order id and do it that way
+						for _, id := range itemIds {
+							update := models.Item{OrderID: orderID}
+							update.ID = id
+							_, err := h.itemsRepo.Update(&update, []string{"orderid", "id"})
+							if err != nil {
+								logrus.Error(fmt.Sprintf("Error updated new item (id: %d) for new order (id: %d): %s", id, order.ID, err.Error()))
+								response = utils.JsonResponse{Error: &utils.JsonErrorResponse{Code: http.StatusInternalServerError, Message: "Failed to create new order."}}
+								break
+							}
+						}
+						if response.Error == nil {
+							logrus.Info(fmt.Sprintf("Successfully inserted new order: %+v", order))
+							response = utils.JsonResponse{Data: []*models.Order{&order}, Id: strconv.Itoa(int(orderID))}
+						}
 					}
 				}
 			}
@@ -201,10 +215,9 @@ func (h *Order) UpdateOrder(w http.ResponseWriter, r *http.Request) {
 						response = utils.JsonResponse{Error: &utils.JsonErrorResponse{Code: http.StatusInternalServerError, Message: "Failed to update order."}}
 					} else { // Partial update was successful
 						logrus.Info(fmt.Sprintf("Successfully partially updated order (id: %d) fields (%s): %+v", order.ID, fieldsStr, order))
-						response = utils.JsonResponse{Data: []*models.Order{&order}, Id: strconv.Itoa(int(order.ID))}
 
 						// Get the set of already existing items for this order
-						existingItems, err := h.itemsRepo.GetByOrderID(int(order.ID))
+						existingItems, err := h.itemsRepo.GetByOrderID(order.ID)
 						if err != nil {
 							logrus.Error(fmt.Sprintf("couldn't retrieve existing items for partial order update: %s", err.Error()))
 							response = utils.NewJsonResponseWithError(http.StatusInternalServerError, "failed to update order: internal server error")
@@ -227,14 +240,17 @@ func (h *Order) UpdateOrder(w http.ResponseWriter, r *http.Request) {
 								}
 								if !match { // The order has no existing item with that product id
 									logrus.Info(fmt.Sprintf("Creating new item: %+v", item))
-									item.OrderID = int(order.ID)
-									_, err := h.itemsRepo.Create(&item)
+									item.OrderID = order.ID
+									id, err := h.itemsRepo.Create(&item)
 									if err != nil {
 										logrus.Error(fmt.Sprintf("error creating item: %s", err.Error()))
 										response = utils.NewJsonResponseWithError(http.StatusInternalServerError, "failed to update order: internal server error")
 									}
+									item.ID = id // for display to client
 								}
 							}
+							logrus.Info(fmt.Sprintf("Completed partial order update successfully (id: %d) fields (%s): %+v", order.ID, fieldsStr, order))
+							response = utils.JsonResponse{Data: []*models.Order{&order}, Id: strconv.Itoa(int(order.ID))}
 						}
 					}
 				}
@@ -259,10 +275,9 @@ func (h *Order) UpdateOrder(w http.ResponseWriter, r *http.Request) {
 						response = utils.JsonResponse{Error: &utils.JsonErrorResponse{Code: http.StatusInternalServerError, Message: "Failed to update order."}}
 					} else { // Update was successful
 						logrus.Info(fmt.Sprintf("Successfully updated order (id: %d) to %+v", order.ID, order))
-						response = utils.JsonResponse{Data: []*models.Order{&order}, Id: strconv.Itoa(int(order.ID))}
 
 						// Get any already existing items for this order
-						existingItems, err := h.itemsRepo.GetByOrderID(int(order.ID))
+						existingItems, err := h.itemsRepo.GetByOrderID(order.ID)
 						if err != nil {
 							logrus.Error(fmt.Sprintf("couldn't retrieve existing items for a full order update: %s", err.Error()))
 							response = utils.NewJsonResponseWithError(http.StatusInternalServerError, "failed to update order: internal server error")
@@ -280,14 +295,16 @@ func (h *Order) UpdateOrder(w http.ResponseWriter, r *http.Request) {
 							// Create new items if any exist in this order
 							for _, item := range order.Items {
 								logrus.Info(fmt.Sprintf("creating new item for order (id: %d)", order.ID))
-								_, err := h.itemsRepo.Create(&item)
+								id, err := h.itemsRepo.Create(&item)
 								if err != nil {
 									logrus.Error(fmt.Sprintf("couldn't create an item for a full order update: %s", err.Error()))
 									response = utils.NewJsonResponseWithError(http.StatusInternalServerError, "failed to update order: internal server error")
 									break
 								}
+								item.ID = id // for display to client
 							}
-							logrus.Info(fmt.Sprintf("Successfully updated items for order (id: %d)", order.ID))
+							logrus.Info(fmt.Sprintf("Completed full order update successfully (id: %d)", order.ID))
+							response = utils.JsonResponse{Data: []*models.Order{&order}, Id: strconv.Itoa(int(order.ID))}
 						}
 					}
 				}
@@ -327,7 +344,7 @@ func (h *Order) DeleteOrder(w http.ResponseWriter, r *http.Request) {
 
 	if response.Error == nil { // Order id is valid
 		// Get slice of already existing items for this order
-		existingItems, err := h.itemsRepo.GetByOrderID(id)
+		existingItems, err := h.itemsRepo.GetByOrderID(uint(id))
 		if err != nil {
 			logrus.Error(fmt.Sprintf("delete order: couldn't retrieve existing items for order (id: %d): %s", id, err.Error()))
 			response = utils.NewJsonResponseWithError(http.StatusInternalServerError, "failed to delete order: internal server error")
@@ -364,14 +381,14 @@ func (h *Order) DeleteOrder(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Order) validateItemsProductID(items []models.Item) (bool, error) {
-	idMap := make(map[int]bool, len(items))
+	idMap := make(map[uint]bool, len(items))
 	for _, item := range items {
 		exists, err := h.productsRepo.Exists(item.ProductID)
 		if err != nil {
 			return false, errors.New("failed to validate product id: " + err.Error())
 		}
 		if !exists {
-			return false, errors.New("product ID " + strconv.Itoa(item.ProductID) + " does not exist in the repo")
+			return false, fmt.Errorf("product ID %d does not exist in the repo", item.ProductID)
 		}
 		_, idAlreadyExists := idMap[item.ProductID]
 		if idAlreadyExists {

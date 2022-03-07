@@ -14,7 +14,7 @@ type Order interface {
 	// GetByID finds and returns an individual order with the supplied id. Returns nil on error.
 	GetByID(num int64) (*models.Order, error)
 	// Create creates a new order and places it in the repository. Returns the ID of the newly created order, -1 on error.
-	Create(u *models.Order) (int64, error)
+	Create(u *models.Order) (orderId uint, itemIds []uint, err error)
 	// Update updates an existing order in the repository. Returns nil on error.
 	Update(u *models.Order, fields []string) (*models.Order, error)
 	// Delete removes an order with the supplied id from the repository. Returns true on success, false on error.

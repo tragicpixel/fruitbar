@@ -49,7 +49,7 @@ func (r *PostgresItemRepo) Exists(id int) (bool, error) {
 	return exists, nil
 }
 
-func (r *PostgresItemRepo) GetByID(id int) (*models.Item, error) {
+func (r *PostgresItemRepo) GetByID(id uint) (*models.Item, error) {
 	var item models.Item
 	result := r.DB.First(&item, id)
 	if result.Error != nil {
@@ -58,7 +58,7 @@ func (r *PostgresItemRepo) GetByID(id int) (*models.Item, error) {
 	return &item, nil
 }
 
-func (r *PostgresItemRepo) GetByOrderID(id int) ([]*models.Item, error) {
+func (r *PostgresItemRepo) GetByOrderID(id uint) ([]*models.Item, error) {
 	var items []*models.Item
 	result := r.DB.Where(&models.Item{OrderID: id}).Find(&items)
 	if result.Error != nil { // TODO: && result.Error != gorm.ErrRecordNotFound ??? test this
@@ -68,16 +68,16 @@ func (r *PostgresItemRepo) GetByOrderID(id int) ([]*models.Item, error) {
 	}
 }
 
-func (r *PostgresItemRepo) Create(i *models.Item) (int64, error) {
+func (r *PostgresItemRepo) Create(i *models.Item) (uint, error) {
 	result := r.DB.Create(&i)
 	if result.Error != nil {
-		return -1, result.Error
+		return 0, result.Error
 	}
-	return int64(i.ID), nil
+	return i.ID, nil
 }
 
 func (r *PostgresItemRepo) Update(i *models.Item, fields []string) (*models.Item, error) {
-	_, err := r.GetByID(int(i.ID))
+	_, err := r.GetByID(i.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (r *PostgresItemRepo) Update(i *models.Item, fields []string) (*models.Item
 			return nil, err
 		}
 	}
-	updated, err := r.GetByID(int(i.ID)) // TODO: fix -- this doesnt return the updated item
+	updated, err := r.GetByID(i.ID) // TODO: fix -- this doesnt return the updated item
 	if err != nil {
 		return nil, err
 	}

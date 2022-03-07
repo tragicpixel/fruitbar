@@ -9,9 +9,9 @@ import (
 // swagger:model item
 type Item struct {
 	gorm.Model
-	OrderID   int `json:"orderid"`
-	ProductID int `json:"productid"`
-	Quantity  int `json:"quantity"`
+	OrderID   uint `json:"orderid"`
+	ProductID uint `json:"productid"`
+	Quantity  int  `json:"quantity"`
 }
 
 func (i *Item) ValidateOrderID() (bool, error) {

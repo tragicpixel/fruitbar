@@ -59,12 +59,15 @@ func (r *PostgresOrderRepo) GetByID(id int64) (*models.Order, error) {
 	return &order, nil
 }
 
-func (r *PostgresOrderRepo) Create(o *models.Order) (int64, error) {
+func (r *PostgresOrderRepo) Create(o *models.Order) (orderId uint, itemIds []uint, err error) {
 	result := r.DB.Create(&o)
 	if result.Error != nil {
-		return -1, result.Error
+		return 0, []uint{}, result.Error
 	}
-	return int64(o.ID), nil
+	for _, item := range o.Items {
+		itemIds = append(itemIds, item.ID)
+	}
+	return o.ID, itemIds, nil
 }
 
 func (r *PostgresOrderRepo) Update(o *models.Order, fields []string) (*models.Order, error) {

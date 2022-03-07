@@ -41,7 +41,7 @@ func (r *PostgresProductRepo) Fetch(pageSeekOptions utils.PageSeekOptions) ([]*m
 	return products, nil
 }
 
-func (r *PostgresProductRepo) Exists(id int) (bool, error) {
+func (r *PostgresProductRepo) Exists(id uint) (bool, error) {
 	var exists bool
 	result := r.DB.Model(models.Product{}).Select("COUNT(*) > 0").Where("ID = ?", id).Find(&exists)
 	if result.Error != nil {

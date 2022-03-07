@@ -25,11 +25,11 @@ func NewPostgresOrderRepo(db *gorm.DB) repository.Order {
 func (r *PostgresOrderRepo) Fetch(pageSeekOptions utils.PageSeekOptions) ([]*models.Order, error) {
 	var orders []*models.Order
 	var result *gorm.DB
-	if pageSeekOptions.Direction == utils.SEEK_DIRECTION_BEFORE {
+	if pageSeekOptions.Direction == utils.SeekDirectionBefore {
 		result = r.DB.Limit(int(pageSeekOptions.RecordLimit)).Where("ID < ?", pageSeekOptions.StartId).Find(&orders)
-	} else if pageSeekOptions.Direction == utils.SEEK_DIRECTION_AFTER {
+	} else if pageSeekOptions.Direction == utils.SeekDirectionAfter {
 		result = r.DB.Limit(int(pageSeekOptions.RecordLimit)).Where("ID > ?", pageSeekOptions.StartId).Find(&orders)
-	} else if pageSeekOptions.Direction == utils.SEEK_DIRECTION_NONE {
+	} else if pageSeekOptions.Direction == utils.SeekDirectionNone {
 		result = r.DB.Limit(int(pageSeekOptions.RecordLimit)).Find(&orders)
 	} else {
 		return nil, errors.New("invalid seek direction")

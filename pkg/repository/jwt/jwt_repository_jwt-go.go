@@ -18,12 +18,14 @@ func NewJWTRepository() repository.Jwt {
 	return &JWTRepository{}
 }
 
-func (r *JWTRepository) GenerateToken(j *models.JwtWrapper) (signedToken string, err error) {
+func (r *JWTRepository) GenerateToken(j *models.JwtWrapper, u *models.User) (signedToken string, err error) {
 	claims := &models.JwtClaim{
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Local().Add(time.Hour * time.Duration(j.ExpirationHours)).Unix(),
 			Issuer:    j.Issuer,
 		},
+		Username: u.Name,
+		Role:     u.Role,
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	signedToken, err = token.SignedString([]byte(j.SecretKey))
@@ -54,4 +56,24 @@ func (r *JWTRepository) ValidateToken(j *models.JwtWrapper, signedToken string) 
 		return
 	}
 	return
+}
+
+// same for username?
+func (r *JWTRepository) GetRole(j *models.JwtWrapper, signedToken string) (role string, err error) {
+	token, err := jwt.ParseWithClaims(
+		signedToken,
+		&models.JwtClaim{},
+		func(token *jwt.Token) (interface{}, error) {
+			return []byte(j.SecretKey), nil
+		},
+	)
+	if err != nil {
+		return
+	}
+	claims, ok := token.Claims.(*models.JwtClaim)
+	if !ok {
+		err = errors.New("couldn't parse claims")
+		return
+	}
+	return claims.Role, nil
 }

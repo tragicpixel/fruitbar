@@ -22,6 +22,11 @@ type UsersService struct {
 	Port    int
 }
 
+type UsersServiceConfig struct {
+	DatabaseConnection *pgdriver.PostgresConnectionConfig
+	Port               int
+}
+
 const (
 	usersServiceRegisterApiHandlerPath    = "/users/register"
 	usersServiceLoginApiHandlerPath       = "/users/login"
@@ -40,11 +45,11 @@ func getUsersHealthCheckApiAllowedHttpMethods() []string {
 
 // NewUsersService creates a new instance of an authentication service.
 // Returns nil on error.
-func NewUsersService(port int, connection *pgdriver.PostgresConnectionConfig) (*UsersService, error) {
+func NewUsersService(config *UsersServiceConfig) (*UsersService, error) {
 	s := UsersService{}
 
 	// sqldb is service name of postgres container in docker-compose
-	db, err := pgdriver.OpenConnection(connection)
+	db, err := pgdriver.OpenConnection(config.DatabaseConnection)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to the user service database: %s", err.Error())
 	}
@@ -57,7 +62,7 @@ func NewUsersService(port int, connection *pgdriver.PostgresConnectionConfig) (*
 
 	s.Handler = handler.NewUserHandler(db)
 	s.Router = s.NewUsersServiceRouter(db)
-	s.Port = port
+	s.Port = config.Port
 
 	return &s, nil
 }

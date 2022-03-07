@@ -61,6 +61,22 @@ services:
     environment:
       - POSTGRESUSER=fruitbar
       - FRUITBAR_DATABASE_SERVICE_NAME=sqldb # The name of the database service in this file
+  products-api: # Products API service
+    image: fruitbar/products-api:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: ./cmd/products/Dockerfile
+    networks:
+      - frontend
+      - backend
+    ports:
+      - "8002:8002"
+    restart: unless-stopped
+    depends_on:
+      - sqldb
+    environment:
+      - POSTGRESUSER=fruitbar
+      - FRUITBAR_DATABASE_SERVICE_NAME=sqldb # The name of the database service in this file
   sqldb: # The Database service
     image: fruitbar/sqldb
     networks:

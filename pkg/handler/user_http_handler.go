@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"strconv"
+
 	"github.com/tragicpixel/fruitbar/pkg/driver"
 	"github.com/tragicpixel/fruitbar/pkg/models"
 	"github.com/tragicpixel/fruitbar/pkg/repository"
@@ -63,6 +65,7 @@ func (h *User) RegisterNewUser(w http.ResponseWriter, r *http.Request) {
 			response = utils.JsonResponse{Error: &utils.JsonErrorResponse{Code: http.StatusInternalServerError, Message: msg}}
 		}
 	}
+	user.Role = models.GetCustomerRoleId() // all users created as customers by default, an admin account must edit the user to change it.
 
 	existingUser, _ := h.repo.GetByUsername(user.Name)
 	if existingUser != nil {
@@ -78,11 +81,11 @@ func (h *User) RegisterNewUser(w http.ResponseWriter, r *http.Request) {
 			logrus.Info("Creating new user...")
 			uId, err := h.repo.Create(r.Context(), &user)
 			if err != nil {
-				logrus.Error("failed to create new order: " + err.Error())
-				response = utils.JsonResponse{Error: &utils.JsonErrorResponse{Code: http.StatusInternalServerError, Message: "Failed to create new order."}}
+				logrus.Error("failed to create new user: " + err.Error())
+				response = utils.JsonResponse{Error: &utils.JsonErrorResponse{Code: http.StatusInternalServerError, Message: "Failed to create new user."}}
 			} else {
 				logrus.Info(fmt.Sprintf("Created new user '%s' with id = %d", user.Name, uId))
-				//response = utils.JsonResponse{Id: strconv.Itoa(int(uId))}
+				response = utils.JsonResponse{Id: strconv.Itoa(int(uId))}
 			}
 		}
 	}
@@ -90,8 +93,25 @@ func (h *User) RegisterNewUser(w http.ResponseWriter, r *http.Request) {
 	if response.Error != nil {
 		utils.WriteJSONResponse(w, response.Error.Code, response)
 	} else {
-		utils.WriteJSONResponse(w, http.StatusNoContent, response)
+		utils.WriteJSONResponse(w, http.StatusOK, response)
 	}
+}
+
+// GetPasswordConstraintsMessage always returns a string as data, containing a message for the user with the constraints applied when setting a new password.
+// This way, the service is the single source of truth for information about the password constraints, and it will never be out-of-date on the site UI.
+func (h *User) GetPasswordConstraintsMessage(w http.ResponseWriter, r *http.Request) {
+	utils.EnableCors(&w, UI_URL)
+	allowedMethods := []string{http.MethodGet, http.MethodOptions}
+	utils.ValidateHttpRequestMethod(w, r, allowedMethods)
+	if r.Method == http.MethodOptions {
+		utils.SetCorsPreflightResponseHeaders(&w, allowedMethods)
+		logrus.Info(fmt.Sprintf("User Get Password Constraints Message API: Sent response to CORS preflight request from %s", r.RemoteAddr))
+		return
+	}
+
+	response := utils.JsonResponse{}
+	response.Data = models.GetPasswordConstraintsMessage()
+	utils.WriteJSONResponse(w, http.StatusOK, response)
 }
 
 // Login attempts to authorize a user based on the supplied credentials (in the http request), and returns a message in JSON on error, or a JSON Web Token on success.
@@ -114,7 +134,7 @@ func (h *User) Login(w http.ResponseWriter, r *http.Request) {
 		if errors.As(err, &request) {
 			response = utils.JsonResponse{Error: &utils.JsonErrorResponse{Code: request.Status, Message: request.Message}}
 		} else {
-			msg := "Failed to decode JSON body: " + err.Error()
+			msg := "failed to decode JSON body: " + err.Error()
 			logrus.Error(msg)
 			response = utils.JsonResponse{Error: &utils.JsonErrorResponse{Code: http.StatusInternalServerError, Message: msg}}
 		}
@@ -140,7 +160,7 @@ func (h *User) Login(w http.ResponseWriter, r *http.Request) {
 				Issuer:          ISSUER,
 				ExpirationHours: 24,
 			}
-			signedToken, err := h.jwtRepo.GenerateToken(&jwt)
+			signedToken, err := h.jwtRepo.GenerateToken(&jwt, &user)
 			if err != nil {
 				logrus.Error(fmt.Sprintf("failed to sign token: %s", err.Error()))
 				response = utils.JsonResponse{Error: &utils.JsonErrorResponse{Code: http.StatusInternalServerError, Message: "Failed to sign token."}}
@@ -168,6 +188,7 @@ func (h *User) IsAuthorized(next http.HandlerFunc) http.HandlerFunc {
 			next.ServeHTTP(w, r)
 			return
 		}
+
 		logrus.Info("Starting JWT authorization...")
 		auth := r.Header.Get("Authorization")
 		if auth == "" {
@@ -199,3 +220,69 @@ func (h *User) IsAuthorized(next http.HandlerFunc) http.HandlerFunc {
 		next.ServeHTTP(w, r)
 	})
 }
+
+// HasRole checks if the client's JWT contains the specified role. A user's role is specified in the claims in their JWT when they log in.
+func (h *User) HasRole(next http.HandlerFunc, role string) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Don't check for roles on OPTIONS requests
+		if r.Method == http.MethodOptions {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		logrus.Info("Starting role authorization check...")
+		auth := r.Header.Get("Authorization")
+		if auth == "" {
+			logrus.Error("No authorization header provided")
+			http.Error(w, "Authorization failed.", http.StatusForbidden)
+			return
+		}
+		token := strings.Split(auth, "Bearer ")
+		if len(token) == 2 {
+			auth = strings.TrimSpace(token[1])
+		} else {
+			logrus.Error("Incorrect format of authorization token")
+			http.Error(w, "Authorization failed.", http.StatusBadRequest)
+			return
+		}
+
+		authReal := models.JwtWrapper{
+			SecretKey: SECRET_KEY,
+			Issuer:    ISSUER,
+		}
+
+		userRole, err := h.jwtRepo.GetRole(&authReal, auth)
+		if err != nil {
+			hasRole, err := models.HasRole(userRole, role)
+			if err != nil {
+				if hasRole {
+					next.ServeHTTP(w, r)
+				} else {
+					logrus.Error("User's role does meet the access level requirements: expecting '" + role + "' got '" + userRole + "'")
+					http.Error(w, "Authorization failed.", http.StatusUnauthorized)
+					return
+				}
+			} else {
+				logrus.Error("Unexpected error checking user's role: " + err.Error())
+				http.Error(w, "Internal server error", http.StatusInternalServerError)
+				return
+			}
+		} else {
+			logrus.Error("Unexpected error parsing user's role from JWT: " + err.Error())
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+	})
+}
+
+// Edit existing user
+// update username, password, role
+// a user can update their own username + password
+// only admins can change a user's role
+// cannot remove admin role from themselves
+
+// Delete existing user
+// admins only
+
+// Read existing user list
+// Or info about one user by id

@@ -17,51 +17,58 @@ import (
 
 // OrdersService holds all the pieces necessary to run the data entry service for the fruitbar application.
 type OrdersService struct {
-	Router      *mux.Router
-	Handler     *handler.Order
-	UserHandler *handler.User
-	DB          *driver.DB
-	Port        int
+	Router          *mux.Router
+	Handler         *handler.Order
+	UserHandler     *handler.User
+	DB              *driver.DB
+	Port            int
+	SalesTaxPercent float64
+}
+
+type OrdersServiceConfig struct {
+	DatabaseConnection *pgdriver.PostgresConnectionConfig
+	Port               int
+	SalesTaxPercent    float64
 }
 
 // change to /orders ????
-const (
-	createApiHandlerPath            = "/orders/"
-	readApiHandlerPath              = "/orders/"
-	updateApiHandlerPath            = "/orders/"
-	deleteApiHandlerPath            = "/orders/"
-	ordersHealthCheckApiHandlerPath = "/orders/health"
-)
+func (s *OrdersService) getOrdersApiBasePath() string    { return "/orders/" }
+func (s *OrdersService) getCreateApiHandlerPath() string { return s.getOrdersApiBasePath() }
+func (s *OrdersService) getReadApiHandlerPath() string   { return s.getOrdersApiBasePath() }
+func (s *OrdersService) getUpdateApiHandlerPath() string { return s.getOrdersApiBasePath() }
+func (s *OrdersService) getDeleteApiHandlerPath() string { return s.getOrdersApiBasePath() }
+func (s *OrdersService) getHealthCheckApiHandlerPath() string {
+	return s.getOrdersApiBasePath() + "health" // remember to add slash when you redo these paths, and update swagger docs
+}
 
-func getCreateApiAllowedHttpMethods() []string {
+func (s *OrdersService) getCreateApiAllowedHttpMethods() []string {
 	return []string{http.MethodPost, http.MethodOptions}
 }
-func getReadApiAllowedHttpMethods() []string {
+func (s *OrdersService) getReadApiAllowedHttpMethods() []string {
 	return []string{http.MethodGet, http.MethodOptions}
 }
-func getUpdateApiAllowedHttpMethods() []string {
+func (s *OrdersService) getUpdateApiAllowedHttpMethods() []string {
 	return []string{http.MethodPut, http.MethodOptions}
 }
-func getDeleteApiAllowedHttpMethods() []string {
+func (s *OrdersService) getDeleteApiAllowedHttpMethods() []string {
 	return []string{http.MethodDelete, http.MethodOptions}
 }
-func getHealthCheckApiAllowedHttpMethods() []string {
+func (s *OrdersService) getHealthCheckApiAllowedHttpMethods() []string {
 	return []string{http.MethodGet, http.MethodOptions}
 }
 
 // NewOrdersService creates a new instance of a data entry service.
 // Returns nil on error.
-func NewOrdersService(port int, connection *pgdriver.PostgresConnectionConfig) (*OrdersService, error) {
+func NewOrdersService(config *OrdersServiceConfig) (*OrdersService, error) {
 	s := OrdersService{}
 
-	// sqldb is service name of postgres container in docker-compose
-	db, err := pgdriver.OpenConnection(connection)
+	db, err := pgdriver.OpenConnection(config.DatabaseConnection)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to the orders service database: %s", err.Error())
 	}
 
 	s.DB = db
-	err = SetupOrdersServiceDB(s.DB, true)
+	err = setupOrdersServiceDB(s.DB, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up the orders service database: %s", err.Error())
 	}
@@ -69,7 +76,8 @@ func NewOrdersService(port int, connection *pgdriver.PostgresConnectionConfig) (
 	s.Handler = handler.NewOrderHandler(db)
 	s.UserHandler = handler.NewUserHandler(db)
 	s.Router = s.NewOrdersServiceRouter(db)
-	s.Port = port
+	s.Port = config.Port
+	s.SalesTaxPercent = config.SalesTaxPercent
 
 	return &s, nil
 }
@@ -78,7 +86,7 @@ func NewOrdersService(port int, connection *pgdriver.PostgresConnectionConfig) (
 func (s *OrdersService) NewOrdersServiceRouter(db *driver.DB) *mux.Router {
 	r := mux.NewRouter()
 
-	// swagger:operation POST /orders orders createOrder
+	// swagger:operation POST /orders/ orders createOrder
 	//
 	// Create a new order.
 	//
@@ -112,17 +120,17 @@ func (s *OrdersService) NewOrdersServiceRouter(db *driver.DB) *mux.Router {
 	//   '500':
 	//     description: Internal server error.
 	//     "$ref": "#/responses/jsonResponse"
-	r.HandleFunc(createApiHandlerPath, s.UserHandler.IsAuthorized(s.Handler.CreateOrder)).Methods(getCreateApiAllowedHttpMethods()...)
-	// swagger:operation GET /orders orders getOrder
+	r.HandleFunc(s.getCreateApiHandlerPath(), s.UserHandler.IsAuthorized(s.Handler.CreateOrder)).Methods(s.getCreateApiAllowedHttpMethods()...)
+	// swagger:operation GET /orders/ orders getOrder
 	//
-	// Get an order by ID.
+	// Get an order by ID, or a paginated listing of all orders.
 	//
 	// ---
 	// parameters:
 	// - name: id
 	//   in: query
 	//   description: id of order to retrieve.
-	//   required: true
+	//   required: false
 	//   schema:
 	//     type: int
 	// security:
@@ -131,8 +139,8 @@ func (s *OrdersService) NewOrdersServiceRouter(db *driver.DB) *mux.Router {
 	//   '200':
 	//     description: Successfully retrieved an order.
 	//     "$ref": "#/responses/jsonResponse"
-	r.HandleFunc(readApiHandlerPath, s.UserHandler.IsAuthorized(s.Handler.GetOrders)).Methods(getReadApiAllowedHttpMethods()...)
-	// swagger:operation PUT /orders orders updateOrder
+	r.HandleFunc(s.getReadApiHandlerPath(), s.UserHandler.IsAuthorized(s.Handler.GetOrders)).Methods(s.getReadApiAllowedHttpMethods()...)
+	// swagger:operation PUT /orders/ orders updateOrder
 	//
 	// Update an existing order.
 	//
@@ -165,8 +173,8 @@ func (s *OrdersService) NewOrdersServiceRouter(db *driver.DB) *mux.Router {
 	//   '500':
 	//     description: Internal server error.
 	//     "$ref": "#/responses/jsonResponse"
-	r.HandleFunc(updateApiHandlerPath, s.UserHandler.IsAuthorized(s.Handler.UpdateOrder)).Methods(getUpdateApiAllowedHttpMethods()...)
-	// swagger:operation DELETE /orders orders deleteOrder
+	r.HandleFunc(s.getUpdateApiHandlerPath(), s.UserHandler.IsAuthorized(s.Handler.UpdateOrder)).Methods(s.getUpdateApiAllowedHttpMethods()...)
+	// swagger:operation DELETE /orders/ orders deleteOrder
 	//
 	// Delete an existing order.
 	//
@@ -198,7 +206,7 @@ func (s *OrdersService) NewOrdersServiceRouter(db *driver.DB) *mux.Router {
 	//   '500':
 	//     description: Internal server error.
 	//     "$ref": "#/responses/jsonResponse"
-	r.HandleFunc(deleteApiHandlerPath, s.UserHandler.IsAuthorized(s.Handler.DeleteOrder)).Methods(getDeleteApiAllowedHttpMethods()...)
+	r.HandleFunc(s.getDeleteApiHandlerPath(), s.UserHandler.IsAuthorized(s.Handler.DeleteOrder)).Methods(s.getDeleteApiAllowedHttpMethods()...)
 	// swagger:operation GET /orders/health orders checkHealth
 	//
 	// Checks the health of the service.
@@ -208,19 +216,26 @@ func (s *OrdersService) NewOrdersServiceRouter(db *driver.DB) *mux.Router {
 	//   '200':
 	//     description: The health check was completed.
 	//     "$ref": "#/responses/healthCheckResponse"
-	r.HandleFunc(ordersHealthCheckApiHandlerPath, s.CheckHealth).Methods(getHealthCheckApiAllowedHttpMethods()...)
+	r.HandleFunc(s.getHealthCheckApiHandlerPath(), s.CheckHealth).Methods(s.getHealthCheckApiAllowedHttpMethods()...)
 
 	return r
 }
 
 // SetupOrdersServiceDB checks that the database schema is ready for the authentication service.
 // If init is true, will create the tables if they do not already exist.
-func SetupOrdersServiceDB(db *driver.DB, init bool) error {
+func setupOrdersServiceDB(db *driver.DB, init bool) error {
 	logrus.Info("Setting up the orders service database...")
-	err := pgdriver.SetupTables(db, &models.FruitOrder{}, init)
+	err := pgdriver.SetupTables(db, &models.Order{}, init)
 	if err != nil {
-		logrus.Error("failed to set up the Orders model table" + err.Error())
-		return errors.New("failed to set up the Orders model table: " + err.Error())
+		msg := "failed to set up the Orders model table" + err.Error()
+		logrus.Error(msg)
+		return errors.New(msg)
+	}
+	err = pgdriver.SetupTables(db, &models.Item{}, init)
+	if err != nil {
+		msg := "failed to set up the Items model table" + err.Error()
+		logrus.Error(msg)
+		return errors.New(msg)
 	}
 	logrus.Info("Successfully set up the database for the orders service")
 	return nil

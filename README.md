@@ -148,6 +148,7 @@ JSON API
 - The API only returns JSON or an empty page: easy for consumer applications to deal with.
 - Responses in JSON follow the [Google JSON Style Guide](https://google.github.io/styleguide/jsoncstyleguide.xml): provides a standardized style guide for JSON responses that consumers and developers can use.
 - Health check uses a simpler format: you only need to ever return one piece of data for the health check ("ok":"yes").
+- Does not implement the JSON PATCH API but supports partial updates via the 'fields' parameter in PUT requests. (http://jsonpatch.com/)
 
 Logging
 -------
@@ -183,7 +184,13 @@ Single makefile, dockerfile, multi-stage builds
 Room for improvement
 --------------------
 I recognize that the following things could be improved, and should be, for a real-world project, but are out-of-scope for this sample project:
-* Using Open API 3.0 specification + documentation generators
-* Set the services up as a swarm so I can use docker secrets to hide passwords
-* Use zerolog instead of logrus: better log performance.
-* Add a register screen for users. (currently must use the API or directly edit the database)
+- Using Open API 3.0 specification + documentation generators
+- Set the services up as a swarm so I can use docker secrets to hide passwords
+- Use zerolog instead of logrus: better log performance.
+- Add a register screen for users. (currently must use the API or directly edit the database)
+- Use generics (very recently introduced in go 1.18) to cut down on some of the boilerplate (service, handler, repository packages)
+- Add an audit trail with username + timestamp, for create/update/delete operations on orders and products.
+- Use the "soft delete" feature of gorm in combination with a scheduled stored procedure to archive "deleted" orders/users/products, and use another stored procedure to delete archived items after some time. (in compliance with state laws for example)
+- Use a permissions set up for user roles, instead of strictly defined roles.
+- Dynamically retrieve sales tax based on the zip code in the payment information. (although, this could depend on the tax laws of the state the server resides in)
+- Implement the JSON PATCH API (partial updates are already supported via 'fields' parameter to PUT requests, but implementing the official standard would be more ideal, and also, more work) perhaps using the still maintained json-patch library (https://github.com/evanphx/json-patch)

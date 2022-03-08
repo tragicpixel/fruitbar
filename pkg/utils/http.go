@@ -115,56 +115,58 @@ const (
 
 // GetPageSeekOptionsByName gets the page seek options for the supplied http request and maximum record limit, using the supplied names for the query parameters.
 // Returns the page seek options and the JSON response, which will be an empty struct unless there is an error.
-func GetPageSeekOptionsByName(r *http.Request, beforeIdParamName string, afterIdParamName string, limitParamName string, limitMax int) (seekOptions PageSeekOptions, response JsonResponse) {
-	var err error
-	// Store before id and after id page seek directives
-	seekOptions.StartId = -1
-	afterIdParamIsSet := r.URL.Query().Has(afterIdParamName)
-	if afterIdParamIsSet {
-		seekOptions.StartId, err = GetQueryParamAsInt(r, afterIdParamName)
-		if err != nil {
-			response = JsonResponse{Error: &JsonErrorResponse{Code: http.StatusBadRequest, Message: err.Error()}}
-		}
-	}
-	beforeIdParamIsSet := r.URL.Query().Has(beforeIdParamName)
-	if beforeIdParamIsSet {
-		seekOptions.StartId, err = GetQueryParamAsInt(r, beforeIdParamName)
-		if err != nil {
-			response = JsonResponse{Error: &JsonErrorResponse{Code: http.StatusBadRequest, Message: err.Error()}}
-		}
-	}
-	if afterIdParamIsSet && beforeIdParamIsSet {
-		msg := "Only one of " + afterIdParamName + " and " + beforeIdParamName + " query parameters can be set."
-		response = JsonResponse{Error: &JsonErrorResponse{Code: http.StatusBadRequest, Message: msg}}
-	} else { // Only one of before id or after id is set, or neither is set
-		// Set page seek direction
-		if afterIdParamIsSet {
-			seekOptions.Direction = SeekDirectionAfter
-		} else if beforeIdParamIsSet {
-			seekOptions.Direction = SeekDirectionBefore
-		} else {
-			seekOptions.Direction = SeekDirectionNone
-		}
+func GetPageSeekOptionsByName(r *http.Request, beforeIdParam string, afterIdParam string, limitParam string, limitMax int) (opts *PageSeekOptions, err error) {
+	opts.StartId = -1
+	afterIdIsSet := r.URL.Query().Has(afterIdParam)
+	beforeIdIsSet := r.URL.Query().Has(beforeIdParam)
 
-		// Validate page record limit, if set
-		seekOptions.RecordLimit = limitMax
-		if r.URL.Query().Has(limitParamName) {
-			seekOptions.RecordLimit, err = GetQueryParamAsInt(r, limitParamName)
-			if err != nil {
-				response = JsonResponse{Error: &JsonErrorResponse{Code: http.StatusBadRequest, Message: err.Error()}}
-			} else {
-				if seekOptions.RecordLimit > limitMax {
-					response = JsonResponse{Error: &JsonErrorResponse{Code: http.StatusBadRequest, Message: limitParamName + " must be less than " + strconv.Itoa(limitMax)}}
-				} else if seekOptions.RecordLimit < 1 {
-					response = JsonResponse{Error: &JsonErrorResponse{Code: http.StatusBadRequest, Message: limitParamName + " must be greater than 0"}}
-				}
-			}
+	if afterIdIsSet && beforeIdIsSet {
+		msg := "Only one of " + afterIdParam + " and " + beforeIdParam + " query parameters can be set."
+		return nil, errors.New(msg)
+	}
+
+	if afterIdIsSet {
+		opts.StartId, err = GetQueryParamAsInt(r, afterIdParam)
+		if err != nil {
+			return nil, err
+		}
+		opts.Direction = SeekDirectionAfter
+	} else if beforeIdIsSet {
+		opts.StartId, err = GetQueryParamAsInt(r, beforeIdParam)
+		if err != nil {
+			return nil, err
+		}
+		opts.Direction = SeekDirectionBefore
+	} else {
+		opts.Direction = SeekDirectionNone
+	}
+
+	opts.RecordLimit = limitMax
+	if r.URL.Query().Has(limitParam) {
+		opts.RecordLimit, err = GetQueryParamAsInt(r, limitParam)
+		if err != nil {
+			return nil, err
+		}
+		if opts.RecordLimit > limitMax {
+			return nil, fmt.Errorf("%s must be less than %d", limitParam, limitMax)
+		} else if opts.RecordLimit < 1 {
+			return nil, fmt.Errorf("%s must be greater than 0", limitParam)
 		}
 	}
-	return seekOptions, response
+	return opts, nil
 }
 
 // GetPageSeekOptions returns the page seek options for the supplied http request and maximum record limit using standardized names for the query parameters.
-func GetPageSeekOptions(r *http.Request, maxLimit int) (PageSeekOptions, JsonResponse) {
+func GetPageSeekOptions(r *http.Request, maxLimit int) (opts *PageSeekOptions, err error) {
 	return GetPageSeekOptionsByName(r, "before_id", "after_id", "limit", maxLimit)
+}
+
+func WriteJSONErrorResponse(w http.ResponseWriter, status int, errMsg string, logMsg ...string) {
+	if logMsg == nil {
+		logrus.Error(logMsg)
+	} else {
+		logrus.Error(errMsg)
+	}
+	r := JsonResponse{Error: &JsonErrorResponse{Code: status, Message: errMsg}}
+	WriteJSONResponse(w, r.Error.Code, r)
 }

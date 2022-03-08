@@ -1,4 +1,4 @@
-// Package order provides implementations of a FruitOrder repository.
+// Package order provides implementations of an Order repository.
 package order
 
 import (
@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// PostgresOrderRepo represents an implementation of a FruitOrder repository using postgres.
+// PostgresOrderRepo represents an implementation of an Order repository using postgres.
 type PostgresOrderRepo struct {
 	DB *gorm.DB
 }
@@ -22,15 +22,14 @@ func NewPostgresOrderRepo(db *gorm.DB) repository.Order {
 	}
 }
 
-func (r *PostgresOrderRepo) Fetch(pageSeekOptions utils.PageSeekOptions) ([]*models.Order, error) {
-	var orders []*models.Order
+func (r *PostgresOrderRepo) Fetch(seek *utils.PageSeekOptions) (orders []*models.Order, err error) {
 	var result *gorm.DB
-	if pageSeekOptions.Direction == utils.SeekDirectionBefore {
-		result = r.DB.Limit(int(pageSeekOptions.RecordLimit)).Where("ID < ?", pageSeekOptions.StartId).Find(&orders)
-	} else if pageSeekOptions.Direction == utils.SeekDirectionAfter {
-		result = r.DB.Limit(int(pageSeekOptions.RecordLimit)).Where("ID > ?", pageSeekOptions.StartId).Find(&orders)
-	} else if pageSeekOptions.Direction == utils.SeekDirectionNone {
-		result = r.DB.Limit(int(pageSeekOptions.RecordLimit)).Find(&orders)
+	if seek.Direction == utils.SeekDirectionBefore {
+		result = r.DB.Limit(int(seek.RecordLimit)).Where("ID < ?", seek.StartId).Find(&orders)
+	} else if seek.Direction == utils.SeekDirectionAfter {
+		result = r.DB.Limit(int(seek.RecordLimit)).Where("ID > ?", seek.StartId).Find(&orders)
+	} else if seek.Direction == utils.SeekDirectionNone {
+		result = r.DB.Limit(int(seek.RecordLimit)).Find(&orders)
 	} else {
 		return nil, errors.New("invalid seek direction")
 	}
@@ -41,8 +40,7 @@ func (r *PostgresOrderRepo) Fetch(pageSeekOptions utils.PageSeekOptions) ([]*mod
 	return orders, nil
 }
 
-func (r *PostgresOrderRepo) Exists(id int) (bool, error) {
-	var exists bool
+func (r *PostgresOrderRepo) Exists(id uint) (exists bool, err error) {
 	result := r.DB.Model(models.Order{}).Select("COUNT(*) > 0").Where("ID = ?", id).Find(&exists)
 	if result.Error != nil {
 		return false, result.Error
@@ -50,13 +48,12 @@ func (r *PostgresOrderRepo) Exists(id int) (bool, error) {
 	return exists, nil
 }
 
-func (r *PostgresOrderRepo) GetByID(id int64) (*models.Order, error) {
-	var order models.Order
-	result := r.DB.First(&order, id)
+func (r *PostgresOrderRepo) GetByID(id uint) (o *models.Order, err error) {
+	result := r.DB.First(o, id)
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	return &order, nil
+	return o, nil
 }
 
 func (r *PostgresOrderRepo) Create(o *models.Order) (orderId uint, itemIds []uint, err error) {
@@ -70,8 +67,8 @@ func (r *PostgresOrderRepo) Create(o *models.Order) (orderId uint, itemIds []uin
 	return o.ID, itemIds, nil
 }
 
-func (r *PostgresOrderRepo) Update(o *models.Order, fields []string) (*models.Order, error) {
-	_, err := r.GetByID(int64(o.ID))
+func (r *PostgresOrderRepo) Update(o *models.Order, fields []string) (update *models.Order, err error) {
+	_, err = r.GetByID(o.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -86,16 +83,16 @@ func (r *PostgresOrderRepo) Update(o *models.Order, fields []string) (*models.Or
 			return nil, err
 		}
 	}
-	updatedOrder, err := r.GetByID(int64(o.ID))
+	update, err = r.GetByID(o.ID)
 	if err != nil {
 		return nil, err
 	}
-	return updatedOrder, nil
+	return update, nil
 }
 
-func (r *PostgresOrderRepo) Delete(id int64) (bool, error) {
+func (r *PostgresOrderRepo) Delete(id uint) (ok bool, err error) {
 	// swap between these two based on some flag, set the flag in the deployment, so you can have different options for dev/test/prod builds
-	//result := r.DB.Delete(&models.FruitOrder{}, id) // soft delete
+	//result := r.DB.Delete(&models.Order{}, id) // soft delete
 	result := r.DB.Unscoped().Delete(&models.Order{}, id) // hard delete
 	if result.Error != nil {
 		return false, result.Error

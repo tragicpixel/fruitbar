@@ -84,8 +84,8 @@ func ValidateCreditCardInfo(cardInfo *CreditCardInfo) (bool, error) {
 	}
 }
 
-// ValidateFruitOrderPaymentInfo determines whether all of the supplied payment information for an order is valid.
-func ValidateFruitOrderPaymentInfo(info *PaymentInfo) (bool, error) {
+// ValidateOrderPaymentInfo determines whether all of the supplied payment information for an order is valid.
+func ValidateOrderPaymentInfo(info *PaymentInfo) (bool, error) {
 	if info.Cash {
 		return true, nil
 	} else {
@@ -93,18 +93,18 @@ func ValidateFruitOrderPaymentInfo(info *PaymentInfo) (bool, error) {
 	}
 }
 
-// ValidateFruitOrderId validates whether the supplied order's ID is valid. (if it exists)
-func ValidateFruitOrderId(order *Order) (bool, error) {
+// ValidateOrderId validates whether the supplied order's ID is valid. (if it exists)
+func ValidateOrderId(order *Order) (bool, error) {
 	if order.ID == 0 { // 0 considered empty by go for an int
 		return false, errors.New("ID cannot be null")
 	}
 	return true, nil
 }
 
-// ValidateFruitOrder validates whether the supplied order is valid. (totals, payment info, and id need to be valid)
-func ValidateFruitOrder(order *Order) (bool, error) {
-	paymentInfoIsValid, paymentInfoError := ValidateFruitOrderPaymentInfo(&order.PaymentInfo)
-	idIsValid, idError := ValidateFruitOrderId(order)
+// ValidateOrder validates whether the supplied order is valid. (totals, payment info, and id need to be valid)
+func ValidateOrder(order *Order) (bool, error) {
+	paymentInfoIsValid, paymentInfoError := ValidateOrderPaymentInfo(&order.PaymentInfo)
+	idIsValid, idError := ValidateOrderId(order)
 	totalIsValid := order.validateTotal()
 	if paymentInfoIsValid && idIsValid && totalIsValid {
 		return true, nil
@@ -115,8 +115,8 @@ func ValidateFruitOrder(order *Order) (bool, error) {
 	}
 }
 
-// ValidateNewFruitOrder validates whether the supplied new fruit order (freshly created) is valid. (payment info needs to be valid)
-func ValidateNewFruitOrder(order *Order) (bool, error) {
+// ValidateNewOrder validates whether the supplied new fruit order (freshly created) is valid. (payment info needs to be valid)
+func ValidateNewOrder(order *Order) (bool, error) {
 	// Need also to validate that subtotal, tax, and total are empty??
 	subtotalIsValid, taxIsValid, totalIsValid := true, true, true
 	var subtotalError, taxError, totalError error
@@ -132,7 +132,7 @@ func ValidateNewFruitOrder(order *Order) (bool, error) {
 		totalIsValid = false
 		totalError = errors.New("total must be empty")
 	}
-	paymentInfoIsValid, paymentInfoError := ValidateFruitOrderPaymentInfo(&order.PaymentInfo)
+	paymentInfoIsValid, paymentInfoError := ValidateOrderPaymentInfo(&order.PaymentInfo)
 	if subtotalIsValid && taxIsValid && totalIsValid && paymentInfoIsValid {
 		return true, nil
 	} else {
@@ -156,9 +156,9 @@ func ValidateOrderUpdate(order *Order, selectedFields []string) (bool, error) {
 	for _, field := range selectedFields {
 		switch field {
 		case "ownerid":
-			_, err = ValidateFruitOrderId(order)
+			_, err = ValidateOrderId(order)
 		case "paymentinfo":
-			_, err = ValidateFruitOrderPaymentInfo(&order.PaymentInfo)
+			_, err = ValidateOrderPaymentInfo(&order.PaymentInfo)
 		case "items":
 		case "taxrate":
 		}

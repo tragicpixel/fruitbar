@@ -22,7 +22,7 @@ func NewPostgresProductRepo(db *gorm.DB) repository.Product {
 	}
 }
 
-func (r *PostgresProductRepo) Fetch(pageSeekOptions utils.PageSeekOptions) ([]*models.Product, error) {
+func (r *PostgresProductRepo) Fetch(pageSeekOptions *utils.PageSeekOptions) ([]*models.Product, error) {
 	var products []*models.Product
 	var result *gorm.DB
 	if pageSeekOptions.Direction == utils.SeekDirectionBefore {
@@ -50,7 +50,7 @@ func (r *PostgresProductRepo) Exists(id uint) (bool, error) {
 	return exists, nil
 }
 
-func (r *PostgresProductRepo) GetByID(id int) (*models.Product, error) {
+func (r *PostgresProductRepo) GetByID(id uint) (*models.Product, error) {
 	var product models.Product
 	result := r.DB.First(&product, id)
 	if result.Error != nil {
@@ -59,16 +59,16 @@ func (r *PostgresProductRepo) GetByID(id int) (*models.Product, error) {
 	return &product, nil
 }
 
-func (r *PostgresProductRepo) Create(p *models.Product) (int64, error) {
+func (r *PostgresProductRepo) Create(p *models.Product) (uint, error) {
 	result := r.DB.Create(&p)
 	if result.Error != nil {
-		return -1, result.Error
+		return 0, result.Error
 	}
-	return int64(p.ID), nil
+	return p.ID, nil
 }
 
 func (r *PostgresProductRepo) Update(p *models.Product, fields []string) (*models.Product, error) {
-	_, err := r.GetByID(int(p.ID))
+	_, err := r.GetByID(p.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -83,14 +83,14 @@ func (r *PostgresProductRepo) Update(p *models.Product, fields []string) (*model
 			return nil, err
 		}
 	}
-	updatedProduct, err := r.GetByID(int(p.ID)) // rethink returning the updated product ... this doesn't return the fully updated product
+	updatedProduct, err := r.GetByID(p.ID) // rethink returning the updated product ... this doesn't return the fully updated product
 	if err != nil {
 		return nil, err
 	}
 	return updatedProduct, nil
 }
 
-func (r *PostgresProductRepo) Delete(id int64) (bool, error) {
+func (r *PostgresProductRepo) Delete(id uint) (bool, error) {
 	// swap between these two based on some flag, set the flag in the deployment, so you can have different options for dev/test/prod builds
 	//result := r.DB.Delete(&models.Product{}, id) // soft delete
 	result := r.DB.Unscoped().Delete(&models.Product{}, id) // hard delete

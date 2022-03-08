@@ -40,7 +40,7 @@ func (r *PostgresItemRepo) Fetch(pageSeekOptions utils.PageSeekOptions) ([]*mode
 	return items, nil
 }
 
-func (r *PostgresItemRepo) Exists(id int) (bool, error) {
+func (r *PostgresItemRepo) Exists(id uint) (bool, error) {
 	var exists bool
 	result := r.DB.Model(models.Item{}).Select("COUNT(*) > 0").Where("ID = ?", id).Find(&exists)
 	if result.Error != nil {
@@ -61,6 +61,16 @@ func (r *PostgresItemRepo) GetByID(id uint) (*models.Item, error) {
 func (r *PostgresItemRepo) GetByOrderID(id uint) ([]*models.Item, error) {
 	var items []*models.Item
 	result := r.DB.Where(&models.Item{OrderID: id}).Find(&items)
+	if result.Error != nil { // TODO: && result.Error != gorm.ErrRecordNotFound ??? test this
+		return nil, result.Error
+	} else {
+		return items, nil
+	}
+}
+
+func (r *PostgresItemRepo) GetByProductID(id uint) ([]*models.Item, error) {
+	var items []*models.Item
+	result := r.DB.Where(&models.Item{ProductID: id}).Find(&items)
 	if result.Error != nil { // TODO: && result.Error != gorm.ErrRecordNotFound ??? test this
 		return nil, result.Error
 	} else {
@@ -99,7 +109,7 @@ func (r *PostgresItemRepo) Update(i *models.Item, fields []string) (*models.Item
 	return updated, nil
 }
 
-func (r *PostgresItemRepo) Delete(id int64) (bool, error) {
+func (r *PostgresItemRepo) Delete(id uint) (bool, error) {
 	// swap between these two based on some flag, set the flag in the deployment, so you can have different options for dev/test/prod builds
 	//result := r.DB.Delete(&models.Item{}, id) // soft delete
 	result := r.DB.Unscoped().Delete(&models.Item{}, id) // hard delete

@@ -171,8 +171,8 @@ func (h *Order) GetOrders(w http.ResponseWriter, r *http.Request) {
 			startID = orders[0].ID
 			endID = orders[len(orders)-1].ID
 		}
-		rangeStr := fmt.Sprintf("Range: orders%d-%d/%d", startID, endID, count)
-		w.Header().Set("Range", rangeStr)
+		rangeStr := fmt.Sprintf("orders%d-%d/%d", startID, endID, count)
+		w.Header().Set("Content-Range", rangeStr)
 		logrus.Info(fmt.Sprintf("Read %d orders", len(orders)))
 		response := utils.JsonResponse{Data: orders}
 		utils.WriteJSONResponse(w, http.StatusOK, response)

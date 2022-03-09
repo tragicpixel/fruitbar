@@ -130,8 +130,8 @@ func (h *Product) GetProducts(w http.ResponseWriter, r *http.Request) {
 			startID = products[0].ID
 			endID = products[len(products)-1].ID
 		}
-		rangeStr := fmt.Sprintf("Range: products=%d-%d/%d", startID, endID, count)
-		w.Header().Set("Range", rangeStr)
+		rangeStr := fmt.Sprintf("products=%d-%d/%d", startID, endID, count)
+		w.Header().Set("Content-Range", rangeStr)
 		logrus.Info(fmt.Sprintf("Read %d products", len(products)))
 		response = utils.JsonResponse{Data: products}
 		utils.WriteJSONResponse(w, http.StatusOK, response)

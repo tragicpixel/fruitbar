@@ -87,7 +87,7 @@ func (h *Product) GetProducts(w http.ResponseWriter, r *http.Request) {
 	var response = utils.JsonResponse{}
 	if r.URL.Query().Has(idParam) {
 		// Read a single product
-		id, err := utils.GetQueryParamAsInt(r, idParam)
+		id, err := utils.GetQueryParamAsUint(r, idParam)
 		if err != nil {
 			utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
 			return
@@ -201,7 +201,7 @@ func (h *Product) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate product id parameter
-	id, err := utils.GetQueryParamAsInt(r, idParam)
+	id, err := utils.GetQueryParamAsUint(r, idParam)
 	if err != nil {
 		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
 		return

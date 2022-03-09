@@ -87,6 +87,20 @@ func GetQueryParamAsInt(r *http.Request, paramName string) (int, error) {
 	}
 }
 
+// GetQueryParamAsUint returns the value of the given http query parameter from the supplied http request as a uint. (if possible)
+func GetQueryParamAsUint(r *http.Request, paramName string) (uint, error) {
+	param := r.URL.Query().Get(paramName)
+	if param == "" {
+		return 0, errors.New("query parameter '" + paramName + "' is not set")
+	} else {
+		value, err := strconv.ParseUint(param, 10, 64)
+		if err != nil {
+			return 0, errors.New("query parameter '" + paramName + "' could not be converted to an integer: " + param)
+		}
+		return uint(value), nil
+	}
+}
+
 // GetQueryParamAsInt attempts to retrieve the given query parameter by the supplied name, from the supplied http request, and then attempts to convert it to an integer.
 // If the parameter is not set, or could not be converted to an integer, -1 and an error is returned. Otherwise, the integer value is returned.
 func GetQueryParamAsString(r *http.Request, paramName string) (string, error) {
@@ -102,7 +116,7 @@ type PageSeekOptions struct {
 	// The maximum number of records to return.
 	RecordLimit int `json:"limit"`
 	// The ID to begin the seek operation from.
-	StartId int `json:"startid"`
+	StartId uint `json:"startid"`
 	// The direction to move away from the starting Id.
 	Direction string `json:"direction"`
 }
@@ -116,7 +130,7 @@ const (
 // GetPageSeekOptionsByName gets the page seek options for the supplied http request and maximum record limit, using the supplied names for the query parameters.
 // Returns the page seek options and the JSON response, which will be an empty struct unless there is an error.
 func GetPageSeekOptionsByName(r *http.Request, beforeIdParam string, afterIdParam string, limitParam string, limitMax int) (opts *PageSeekOptions, err error) {
-	opts.StartId = -1
+	opts.StartId = 0
 	afterIdIsSet := r.URL.Query().Has(afterIdParam)
 	beforeIdIsSet := r.URL.Query().Has(beforeIdParam)
 
@@ -126,13 +140,13 @@ func GetPageSeekOptionsByName(r *http.Request, beforeIdParam string, afterIdPara
 	}
 
 	if afterIdIsSet {
-		opts.StartId, err = GetQueryParamAsInt(r, afterIdParam)
+		opts.StartId, err = GetQueryParamAsUint(r, afterIdParam)
 		if err != nil {
 			return nil, err
 		}
 		opts.Direction = SeekDirectionAfter
 	} else if beforeIdIsSet {
-		opts.StartId, err = GetQueryParamAsInt(r, beforeIdParam)
+		opts.StartId, err = GetQueryParamAsUint(r, beforeIdParam)
 		if err != nil {
 			return nil, err
 		}

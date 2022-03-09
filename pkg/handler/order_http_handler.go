@@ -127,7 +127,7 @@ func (h *Order) GetOrders(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Query().Has(idParam) {
 		// Read a single order
-		id, err := utils.GetQueryParamAsInt(r, idParam)
+		id, err := utils.GetQueryParamAsUint(r, idParam)
 		if err != nil {
 			utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
 			return
@@ -307,7 +307,7 @@ func (h *Order) DeleteOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := utils.GetQueryParamAsInt(r, idParam)
+	id, err := utils.GetQueryParamAsUint(r, idParam)
 	if err != nil {
 		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
@@ -330,7 +330,7 @@ func (h *Order) DeleteOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	logrus.Info(fmt.Sprintf("Deleted all items for order (id: %d)", id))
 
-	logrus.Info("Deleting order with id " + strconv.Itoa(id) + "...")
+	logrus.Info(fmt.Sprintf("Deleting order (id: %d)..., ", id))
 	_, err = h.repo.Delete(uint(id))
 	if err != nil {
 		logMsg := fmt.Sprintf("Error deleting order (id %d): %s", id, err.Error())

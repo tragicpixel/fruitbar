@@ -22,19 +22,36 @@ func NewPostgresProductRepo(db *gorm.DB) repository.Product {
 	}
 }
 
-func (r *PostgresProductRepo) Fetch(pageSeekOptions *utils.PageSeekOptions) ([]*models.Product, error) {
-	var products []*models.Product
+func (r *PostgresProductRepo) Count(seek *utils.PageSeekOptions) (count int64, err error) {
 	var result *gorm.DB
-	if pageSeekOptions.Direction == utils.SeekDirectionBefore {
-		result = r.DB.Limit(pageSeekOptions.RecordLimit).Where("ID < ?", pageSeekOptions.StartId).Find(&products)
-	} else if pageSeekOptions.Direction == utils.SeekDirectionAfter {
-		result = r.DB.Limit(pageSeekOptions.RecordLimit).Where("ID > ?", pageSeekOptions.StartId).Find(&products)
-	} else if pageSeekOptions.Direction == utils.SeekDirectionNone {
-		result = r.DB.Limit(pageSeekOptions.RecordLimit).Find(&products)
-	} else {
+	switch seek.Direction {
+	case utils.SeekDirectionBefore:
+		result = r.DB.Model(&models.Product{}).Where("ID < ?", seek.StartId).Count(&count)
+	case utils.SeekDirectionAfter:
+		result = r.DB.Model(&models.Product{}).Where("ID > ?", seek.StartId).Count(&count)
+	case utils.SeekDirectionNone:
+		result = r.DB.Model(&models.Product{}).Count(&count)
+	default:
+		return -1, errors.New("invalid seek direction")
+	}
+	if result.Error != nil {
+		return -1, result.Error
+	}
+	return count, nil
+}
+
+func (r *PostgresProductRepo) Fetch(seek *utils.PageSeekOptions) (products []*models.Product, err error) {
+	var result *gorm.DB
+	switch seek.Direction {
+	case utils.SeekDirectionBefore:
+		result = r.DB.Limit(seek.RecordLimit).Where("ID < ?", seek.StartId).Find(&products)
+	case utils.SeekDirectionAfter:
+		result = r.DB.Limit(seek.RecordLimit).Where("ID > ?", seek.StartId).Find(&products)
+	case utils.SeekDirectionNone:
+		result = r.DB.Limit(seek.RecordLimit).Find(&products)
+	default:
 		return nil, errors.New("invalid seek direction")
 	}
-
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -90,12 +107,12 @@ func (r *PostgresProductRepo) Update(p *models.Product, fields []string) (*model
 	return updatedProduct, nil
 }
 
-func (r *PostgresProductRepo) Delete(id uint) (bool, error) {
+func (r *PostgresProductRepo) Delete(id uint) error {
 	// swap between these two based on some flag, set the flag in the deployment, so you can have different options for dev/test/prod builds
 	//result := r.DB.Delete(&models.Product{}, id) // soft delete
 	result := r.DB.Unscoped().Delete(&models.Product{}, id) // hard delete
 	if result.Error != nil {
-		return false, result.Error
+		return result.Error
 	}
-	return true, result.Error
+	return nil
 }

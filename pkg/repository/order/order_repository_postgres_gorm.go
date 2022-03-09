@@ -22,6 +22,24 @@ func NewPostgresOrderRepo(db *gorm.DB) repository.Order {
 	}
 }
 
+func (r *PostgresOrderRepo) Count(seek *utils.PageSeekOptions) (count int64, err error) {
+	var result *gorm.DB
+	switch seek.Direction {
+	case utils.SeekDirectionBefore:
+		result = r.DB.Model(&models.Order{}).Where("ID < ?", seek.StartId).Count(&count)
+	case utils.SeekDirectionAfter:
+		result = r.DB.Model(&models.Order{}).Where("ID > ?", seek.StartId).Count(&count)
+	case utils.SeekDirectionNone:
+		result = r.DB.Model(&models.Order{}).Count(&count)
+	default:
+		return -1, errors.New("invalid seek direction")
+	}
+	if result.Error != nil {
+		return -1, result.Error
+	}
+	return count, nil
+}
+
 func (r *PostgresOrderRepo) Fetch(seek *utils.PageSeekOptions) (orders []*models.Order, err error) {
 	var result *gorm.DB
 	if seek.Direction == utils.SeekDirectionBefore {
@@ -90,12 +108,12 @@ func (r *PostgresOrderRepo) Update(o *models.Order, fields []string) (update *mo
 	return update, nil
 }
 
-func (r *PostgresOrderRepo) Delete(id uint) (ok bool, err error) {
+func (r *PostgresOrderRepo) Delete(id uint) error {
 	// swap between these two based on some flag, set the flag in the deployment, so you can have different options for dev/test/prod builds
 	//result := r.DB.Delete(&models.Order{}, id) // soft delete
 	result := r.DB.Unscoped().Delete(&models.Order{}, id) // hard delete
 	if result.Error != nil {
-		return false, result.Error
+		return result.Error
 	}
-	return true, result.Error
+	return result.Error
 }

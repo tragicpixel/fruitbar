@@ -5,18 +5,20 @@ import (
 	"github.com/tragicpixel/fruitbar/pkg/utils"
 )
 
-// Order provides an interface for performing operations on a repoistory of orders.
+// Product provides an interface for performing operations on a repository of products.
 type Product interface {
-	// Fetch find and returns an array of all products in the repository. Returns nil on error.
+	// Count returns the count of all the records matching the supplied seek options.
+	Count(seek *utils.PageSeekOptions) (count int64, err error)
+	// Fetch returns the products in the repository matching the supplied seek options.
 	Fetch(pageSeekOptions *utils.PageSeekOptions) ([]*models.Product, error)
 	// Exists determines if a product with the supplied id exists.
 	Exists(id uint) (bool, error)
-	// GetByID finds and returns an individual product with the supplied id. Returns nil on error.
+	// GetByID returns the product with the supplied id, if it exists.
 	GetByID(id uint) (*models.Product, error)
-	// Create creates a new product and places it in the repository. Returns the ID of the newly created product, -1 on error.
+	// Create creates a new product and returns the ID of the newly created product.
 	Create(u *models.Product) (uint, error)
-	// Update updates an existing product in the repository. Returns nil on error.
+	// Update updates an existing product in the repository and returns the updated product.
 	Update(u *models.Product, fields []string) (*models.Product, error)
-	// Delete removes a product with the supplied id from the repository. Returns true on success, false on error.
-	Delete(id uint) (bool, error)
+	// Delete removes a product with the supplied id from the repository.
+	Delete(id uint) error
 }

@@ -94,7 +94,7 @@ func (h *Product) GetProducts(w http.ResponseWriter, r *http.Request) {
 		}
 		logrus.Info(fmt.Sprintf("Reading product (id: %d)...", id))
 		var product *models.Product
-		product, err = h.repo.GetByID(uint(id))
+		product, err = h.repo.GetByID(id)
 		if err != nil {
 			logMsg := fmt.Sprintf("Error reading product (id: %d): %s", id, err.Error())
 			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
@@ -105,20 +105,33 @@ func (h *Product) GetProducts(w http.ResponseWriter, r *http.Request) {
 		utils.WriteJSONResponse(w, http.StatusOK, response)
 	} else {
 		// Read a page of products
-		var pageSeekOptions *utils.PageSeekOptions
-		pageSeekOptions, err := utils.GetPageSeekOptions(r, readPageMaxLimit)
+		var seek *utils.PageSeekOptions
+		seek, err := utils.GetPageSeekOptions(r, readPageMaxLimit)
 		if response.Error != nil {
 			utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
 		}
 
-		logrus.Info(fmt.Sprintf("Reading %d products (max %d)...", pageSeekOptions.RecordLimit, readPageMaxLimit))
+		logrus.Info(fmt.Sprintf("Reading %d products (max %d)...", seek.RecordLimit, readPageMaxLimit))
 		var products []*models.Product
-		products, err = h.repo.Fetch(pageSeekOptions)
+		products, err = h.repo.Fetch(seek)
 		if err != nil {
 			logMsg := fmt.Sprintf("Error reading products: %s", err.Error())
 			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 			return
 		}
+		count, err := h.repo.Count(seek)
+		if err != nil {
+			logMsg := fmt.Sprintf("Error counting products: %s", err.Error())
+			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+			return
+		}
+		startID, endID := uint(0), uint(0)
+		if len(products) > 0 {
+			startID = products[0].ID
+			endID = products[len(products)-1].ID
+		}
+		rangeStr := fmt.Sprintf("Range: products=%d-%d/%d", startID, endID, count)
+		w.Header().Set("Range", rangeStr)
 		logrus.Info(fmt.Sprintf("Read %d products", len(products)))
 		response = utils.JsonResponse{Data: products}
 		utils.WriteJSONResponse(w, http.StatusOK, response)
@@ -208,7 +221,7 @@ func (h *Product) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete any items with this product ID
-	existingItems, err := h.itemsRepo.GetByProductID(uint(id))
+	existingItems, err := h.itemsRepo.GetByProductID(id)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error reading existing items for product (id: %d): %s", id, err.Error())
 		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
@@ -216,7 +229,7 @@ func (h *Product) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, item := range existingItems {
 		logrus.Info(fmt.Sprintf("Deleting existing item (id: %d) from product (id: %d)", item.ID, id))
-		_, err := h.itemsRepo.Delete(item.ID)
+		err := h.itemsRepo.Delete(item.ID)
 		if err != nil {
 			logMsg := fmt.Sprintf("Error deleting existing item (id: %d): %s", item.ID, err.Error())
 			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
@@ -227,7 +240,7 @@ func (h *Product) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 
 	// Delete the product
 	logrus.Info(fmt.Sprintf("Deleting product (id: %d)...", id))
-	_, err = h.repo.Delete(uint(id))
+	err = h.repo.Delete(id)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error deleting product (id: %d): %s", id, err.Error())
 		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)

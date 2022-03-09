@@ -7,20 +7,22 @@ import (
 
 // Order provides an interface for performing operations on a repoistory of orders.
 type Item interface {
-	// Fetch find and returns an array of all items in the repository.
-	Fetch(pageSeekOptions utils.PageSeekOptions) ([]*models.Item, error)
+	// Count returns the count of all the records matching the supplied seek options.
+	Count(seek *utils.PageSeekOptions) (count int64, err error)
+	// Fetch returns the records in the repository matching the supplied seek options.
+	Fetch(pageSeekOptions *utils.PageSeekOptions) ([]*models.Item, error)
 	// Exists determines if an item with the supplied id exists.
 	Exists(id uint) (bool, error)
-	// GetByID finds and returns an individual item with the supplied id.
+	// GetByID returns the item with the supplied id, if it exists.
 	GetByID(id uint) (*models.Item, error)
 	// GetByOrderID returns an array of all the items in the repository with the supplied order id.
 	GetByOrderID(id uint) ([]*models.Item, error)
 	// GetByOrderID returns an array of all the items in the repository with the supplied product id.
 	GetByProductID(id uint) ([]*models.Item, error)
-	// Create creates a new item and places it in the repository. Returns the ID of the newly created item, -1 on error.
+	// Create creates a new record and returns its ID.
 	Create(i *models.Item) (uint, error)
-	// Update updates an existing item in the repository.
+	// Update updates an existing product in the repository and returns the updated record.
 	Update(i *models.Item, fields []string) (*models.Item, error)
-	// Delete removes an item with the supplied id from the repository. Returns true on success.
-	Delete(id uint) (bool, error)
+	// Delete removes the record with the supplied id from the repository.
+	Delete(id uint) error
 }

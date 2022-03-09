@@ -134,7 +134,7 @@ func (h *Order) GetOrders(w http.ResponseWriter, r *http.Request) {
 		}
 		logrus.Info(fmt.Sprintf("Reading order with id %d...", id))
 		var order *models.Order
-		order, err = h.repo.GetByID(uint(id))
+		order, err = h.repo.GetByID(id)
 		if err != nil {
 			logMsg := fmt.Sprintf("Error reading order (id: %d) %s", id, err.Error())
 			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
@@ -146,20 +146,33 @@ func (h *Order) GetOrders(w http.ResponseWriter, r *http.Request) {
 		return
 	} else {
 		// Read a page of orders
-		var seekOpts *utils.PageSeekOptions
-		seekOpts, err := utils.GetPageSeekOptions(r, readPageMaxLimit)
+		var seek *utils.PageSeekOptions
+		seek, err := utils.GetPageSeekOptions(r, readPageMaxLimit)
 		if err != nil {
 			utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		logrus.Info(fmt.Sprintf("Reading %d orders (max %d)...", seekOpts.RecordLimit, readPageMaxLimit))
+		logrus.Info(fmt.Sprintf("Reading %d orders (max %d)...", seek.RecordLimit, readPageMaxLimit))
 		var orders []*models.Order
-		orders, err = h.repo.Fetch(seekOpts)
+		orders, err = h.repo.Fetch(seek)
 		if err != nil {
 			logMsg := fmt.Sprintf("Error reading orders: %s", err.Error())
 			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 			return
 		}
+		count, err := h.repo.Count(seek)
+		if err != nil {
+			logMsg := fmt.Sprintf("Error counting orders: %s", err.Error())
+			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+			return
+		}
+		startID, endID := uint(0), uint(0)
+		if len(orders) > 0 {
+			startID = orders[0].ID
+			endID = orders[len(orders)-1].ID
+		}
+		rangeStr := fmt.Sprintf("Range: orders%d-%d/%d", startID, endID, count)
+		w.Header().Set("Range", rangeStr)
 		logrus.Info(fmt.Sprintf("Read %d orders", len(orders)))
 		response := utils.JsonResponse{Data: orders}
 		utils.WriteJSONResponse(w, http.StatusOK, response)
@@ -273,7 +286,7 @@ func (h *Order) UpdateOrder(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, item := range currentItems {
 			logrus.Info(fmt.Sprintf("Deleting existing item (id: %d) from order (id: %d)...", item.ID, order.ID))
-			_, err := h.itemsRepo.Delete(item.ID)
+			err := h.itemsRepo.Delete(item.ID)
 			if err != nil {
 				logMsg := fmt.Sprintf("Error deleting existing item: %s", err.Error())
 				utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
@@ -313,7 +326,7 @@ func (h *Order) DeleteOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	existingItems, err := h.itemsRepo.GetByOrderID(uint(id))
+	existingItems, err := h.itemsRepo.GetByOrderID(id)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error reading existing items for order (id: %d): %s", id, err.Error())
 		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
@@ -321,7 +334,7 @@ func (h *Order) DeleteOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, item := range existingItems {
 		logrus.Info(fmt.Sprintf("Deleting existing item (id: %d) from order (id: %d)", item.ID, id))
-		_, err := h.itemsRepo.Delete(item.ID)
+		err := h.itemsRepo.Delete(item.ID)
 		if err != nil {
 			logMsg := fmt.Sprintf("Error deleting existing item (id: %d): %s", item.ID, err.Error())
 			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
@@ -331,7 +344,7 @@ func (h *Order) DeleteOrder(w http.ResponseWriter, r *http.Request) {
 	logrus.Info(fmt.Sprintf("Deleted all items for order (id: %d)", id))
 
 	logrus.Info(fmt.Sprintf("Deleting order (id: %d)..., ", id))
-	_, err = h.repo.Delete(uint(id))
+	err = h.repo.Delete(id)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error deleting order (id %d): %s", id, err.Error())
 		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
@@ -344,7 +357,7 @@ func (h *Order) DeleteOrder(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Order) validateItemsProductID(items []models.Item) (bool, error) {
-	idMap := make(map[uint]bool, len(items))
+	ids := make(map[uint]bool, len(items))
 	for _, item := range items {
 		exists, err := h.productsRepo.Exists(item.ProductID)
 		if err != nil {
@@ -353,11 +366,11 @@ func (h *Order) validateItemsProductID(items []models.Item) (bool, error) {
 		if !exists {
 			return false, fmt.Errorf("product ID %d does not exist in the repo", item.ProductID)
 		}
-		_, idAlreadyExists := idMap[item.ProductID]
+		_, idAlreadyExists := ids[item.ProductID]
 		if idAlreadyExists {
 			return false, errors.New("item list contains duplicate product ID: " + strconv.Itoa(int(item.ProductID)))
 		}
-		idMap[item.ProductID] = true
+		ids[item.ProductID] = true
 	}
 	return true, nil
 }

@@ -31,30 +31,65 @@ type OrdersServiceConfig struct {
 	SalesTaxPercent    float64
 }
 
-// change to /orders ????
-func (s *OrdersService) getOrdersApiBasePath() string    { return "/orders/" }
-func (s *OrdersService) getCreateApiHandlerPath() string { return s.getOrdersApiBasePath() }
-func (s *OrdersService) getReadApiHandlerPath() string   { return s.getOrdersApiBasePath() }
-func (s *OrdersService) getUpdateApiHandlerPath() string { return s.getOrdersApiBasePath() }
-func (s *OrdersService) getDeleteApiHandlerPath() string { return s.getOrdersApiBasePath() }
-func (s *OrdersService) getHealthCheckApiHandlerPath() string {
-	return s.getOrdersApiBasePath() + "health" // remember to add slash when you redo these paths, and update swagger docs
+const (
+	ordersAPIBaseRoute   = "/orders/"
+	ordersCreateAPIRoute = ordersAPIBaseRoute
+	ordersReadAPIRoute   = ordersAPIBaseRoute
+	ordersUpdateAPIRoute = ordersAPIBaseRoute
+	ordersDeleteAPIRoute = ordersAPIBaseRoute
+	ordersHealthAPIRoute = ordersAPIBaseRoute + "health"
+)
+
+func (s *OrdersService) getCreateAPICORSOptions() utils.CORSOptions {
+	return utils.CORSOptions{
+		AllowedUrl:     handler.UI_URL,
+		APIName:        "Create Order",
+		AllowedMethods: []string{http.MethodPost, http.MethodOptions},
+	}
+}
+func (s *OrdersService) getReadAPICORSOptions() utils.CORSOptions {
+	return utils.CORSOptions{
+		AllowedUrl:     handler.UI_URL,
+		APIName:        "Read Order",
+		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
+	}
+}
+func (s *OrdersService) getUpdateAPICORSOptions() utils.CORSOptions {
+	return utils.CORSOptions{
+		AllowedUrl:     handler.UI_URL,
+		APIName:        "Update Order",
+		AllowedMethods: []string{http.MethodPut, http.MethodOptions},
+	}
+}
+func (s *OrdersService) getDeleteAPICORSOptions() utils.CORSOptions {
+	return utils.CORSOptions{
+		AllowedUrl:     handler.UI_URL,
+		APIName:        "Delete Order",
+		AllowedMethods: []string{http.MethodDelete, http.MethodOptions},
+	}
+}
+func (s *OrdersService) getHealthCheckAPICORSOptions() utils.CORSOptions {
+	return utils.CORSOptions{
+		AllowedUrl:     handler.UI_URL,
+		APIName:        "Health Check",
+		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
+	}
 }
 
-func (s *OrdersService) getCreateApiAllowedHttpMethods() []string {
-	return []string{http.MethodPost, http.MethodOptions}
+func (s *OrdersService) getCreateAPIHandler() func(http.ResponseWriter, *http.Request) {
+	return s.UserHandler.IsAuthorized(utils.SendCORSPreflightHeaders(s.getCreateAPICORSOptions(), s.Handler.CreateOrder))
 }
-func (s *OrdersService) getReadApiAllowedHttpMethods() []string {
-	return []string{http.MethodGet, http.MethodOptions}
+func (s *OrdersService) getReadAPIHandler() func(http.ResponseWriter, *http.Request) {
+	return s.UserHandler.IsAuthorized(utils.SendCORSPreflightHeaders(s.getReadAPICORSOptions(), s.Handler.GetOrders))
 }
-func (s *OrdersService) getUpdateApiAllowedHttpMethods() []string {
-	return []string{http.MethodPut, http.MethodOptions}
+func (s *OrdersService) getUpdateAPIHandler() func(http.ResponseWriter, *http.Request) {
+	return s.UserHandler.IsAuthorized(utils.SendCORSPreflightHeaders(s.getUpdateAPICORSOptions(), s.Handler.UpdateOrder))
 }
-func (s *OrdersService) getDeleteApiAllowedHttpMethods() []string {
-	return []string{http.MethodDelete, http.MethodOptions}
+func (s *OrdersService) getDeleteAPIHandler() func(http.ResponseWriter, *http.Request) {
+	return s.UserHandler.IsAuthorized(utils.SendCORSPreflightHeaders(s.getDeleteAPICORSOptions(), s.Handler.DeleteOrder))
 }
-func (s *OrdersService) getHealthCheckApiAllowedHttpMethods() []string {
-	return []string{http.MethodGet, http.MethodOptions}
+func (s *OrdersService) getHealthCheckAPIHandler() func(http.ResponseWriter, *http.Request) {
+	return utils.SendCORSPreflightHeaders(s.getHealthCheckAPICORSOptions(), s.CheckHealth)
 }
 
 // NewOrdersService creates a new instance of a data entry service.
@@ -120,7 +155,7 @@ func (s *OrdersService) NewOrdersServiceRouter(db *driver.DB) *mux.Router {
 	//   '500':
 	//     description: Internal server error.
 	//     "$ref": "#/responses/jsonResponse"
-	r.HandleFunc(s.getCreateApiHandlerPath(), s.UserHandler.IsAuthorized(s.Handler.CreateOrder)).Methods(s.getCreateApiAllowedHttpMethods()...)
+	r.HandleFunc(ordersCreateAPIRoute, s.getCreateAPIHandler()).Methods(s.getCreateAPICORSOptions().AllowedMethods...)
 	// swagger:operation GET /orders/ orders getOrder
 	//
 	// Get an order by ID, or a paginated listing of all orders.
@@ -139,7 +174,7 @@ func (s *OrdersService) NewOrdersServiceRouter(db *driver.DB) *mux.Router {
 	//   '200':
 	//     description: Successfully retrieved an order.
 	//     "$ref": "#/responses/jsonResponse"
-	r.HandleFunc(s.getReadApiHandlerPath(), s.UserHandler.IsAuthorized(s.Handler.GetOrders)).Methods(s.getReadApiAllowedHttpMethods()...)
+	r.HandleFunc(ordersReadAPIRoute, s.getReadAPIHandler()).Methods(s.getReadAPICORSOptions().AllowedMethods...)
 	// swagger:operation PUT /orders/ orders updateOrder
 	//
 	// Update an existing order.
@@ -173,7 +208,7 @@ func (s *OrdersService) NewOrdersServiceRouter(db *driver.DB) *mux.Router {
 	//   '500':
 	//     description: Internal server error.
 	//     "$ref": "#/responses/jsonResponse"
-	r.HandleFunc(s.getUpdateApiHandlerPath(), s.UserHandler.IsAuthorized(s.Handler.UpdateOrder)).Methods(s.getUpdateApiAllowedHttpMethods()...)
+	r.HandleFunc(ordersUpdateAPIRoute, s.getUpdateAPIHandler()).Methods(s.getUpdateAPICORSOptions().AllowedMethods...)
 	// swagger:operation DELETE /orders/ orders deleteOrder
 	//
 	// Delete an existing order.
@@ -206,7 +241,7 @@ func (s *OrdersService) NewOrdersServiceRouter(db *driver.DB) *mux.Router {
 	//   '500':
 	//     description: Internal server error.
 	//     "$ref": "#/responses/jsonResponse"
-	r.HandleFunc(s.getDeleteApiHandlerPath(), s.UserHandler.IsAuthorized(s.Handler.DeleteOrder)).Methods(s.getDeleteApiAllowedHttpMethods()...)
+	r.HandleFunc(ordersDeleteAPIRoute, s.getDeleteAPIHandler()).Methods(s.getDeleteAPICORSOptions().AllowedMethods...)
 	// swagger:operation GET /orders/health orders checkHealth
 	//
 	// Checks the health of the service.
@@ -216,7 +251,7 @@ func (s *OrdersService) NewOrdersServiceRouter(db *driver.DB) *mux.Router {
 	//   '200':
 	//     description: The health check was completed.
 	//     "$ref": "#/responses/healthCheckResponse"
-	r.HandleFunc(s.getHealthCheckApiHandlerPath(), s.CheckHealth).Methods(s.getHealthCheckApiAllowedHttpMethods()...)
+	r.HandleFunc(ordersHealthAPIRoute, s.getHealthCheckAPIHandler()).Methods(s.getHealthCheckAPICORSOptions().AllowedMethods...)
 
 	return r
 }
@@ -246,12 +281,12 @@ func setupOrdersServiceDB(db *driver.DB, init bool) error {
 func (s *OrdersService) CheckHealth(w http.ResponseWriter, r *http.Request) {
 	var err error
 	logrus.Info("Checking orders service health...")
-	theDatabase, err := s.DB.Postgres.DB()
+	db, err := s.DB.Postgres.DB()
 	if err != nil {
 		logrus.Error("orders service health check failed: Error getting SQLDB from gorm DB: " + err.Error())
 		utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": false})
 	} else {
-		if err = theDatabase.Ping(); err != nil {
+		if err = db.Ping(); err != nil {
 			logrus.Error("orders service health check failed: error pinging the database: " + err.Error())
 			utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": false})
 		} else {

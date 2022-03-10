@@ -49,16 +49,7 @@ const (
 // Requires at least 1 fruit to be purchased, paymentInfo.cash must be true or paymentInfo.cardInfo must be filled out and valid.
 // Any supplied values for subtotal, tax, and total, will be overwritten.
 func (h *Order) CreateOrder(w http.ResponseWriter, r *http.Request) {
-	utils.EnableCors(&w, UI_URL)
-	allowedMethods := []string{http.MethodPost, http.MethodOptions}
-	utils.ValidateHttpRequestMethod(w, r, allowedMethods)
-	if r.Method == http.MethodOptions {
-		utils.SetCorsPreflightResponseHeaders(&w, allowedMethods)
-		logrus.Info(fmt.Sprintf("Create Order API: Sent response to CORS preflight request from %s", r.RemoteAddr))
-		return
-	}
-
-	// Decode the new order from JSON format TODO(tragicpixel): Make this its own function
+	// Decode the new order from JSON format TODO(tragicpixel): Make this block its own function
 	var response = utils.JsonResponse{}
 	var order models.Order
 	response = *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &order, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
@@ -116,15 +107,6 @@ func (h *Order) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 // GetOrders retrieves an existing order in the repo based on the supplied ID query parameter and returns a response in JSON containing either the order encoded in JSON or an error message.
 func (h *Order) GetOrders(w http.ResponseWriter, r *http.Request) {
-	utils.EnableCors(&w, UI_URL)
-	allowedMethods := []string{http.MethodGet, http.MethodOptions}
-	utils.ValidateHttpRequestMethod(w, r, allowedMethods)
-	if r.Method == http.MethodOptions {
-		utils.SetCorsPreflightResponseHeaders(&w, allowedMethods)
-		logrus.Info(fmt.Sprintf("Read Order API: Sent response to CORS preflight request from %s", r.RemoteAddr))
-		return
-	}
-
 	if r.URL.Query().Has(idParam) {
 		// Read a single order
 		id, err := utils.GetQueryParamAsUint(r, idParam)
@@ -181,15 +163,6 @@ func (h *Order) GetOrders(w http.ResponseWriter, r *http.Request) {
 
 // UpdateOrder updates an existing order in the repo based on the supplied JSON request, and returns a status message in JSON to the user.
 func (h *Order) UpdateOrder(w http.ResponseWriter, r *http.Request) {
-	utils.EnableCors(&w, UI_URL)
-	allowedMethods := []string{http.MethodPut, http.MethodOptions}
-	utils.ValidateHttpRequestMethod(w, r, allowedMethods)
-	if r.Method == http.MethodOptions {
-		utils.SetCorsPreflightResponseHeaders(&w, allowedMethods)
-		logrus.Info(fmt.Sprintf("Update API: Sent response to CORS preflight request from %s", r.RemoteAddr))
-		return
-	}
-
 	var response = utils.JsonResponse{}
 	var order models.Order
 	response = *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &order, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
@@ -311,15 +284,6 @@ func (h *Order) UpdateOrder(w http.ResponseWriter, r *http.Request) {
 
 // DeleteOrder deletes an existing order from the repo based on the supplied http request and writes a response over http.
 func (h *Order) DeleteOrder(w http.ResponseWriter, r *http.Request) {
-	utils.EnableCors(&w, UI_URL)
-	allowedMethods := []string{http.MethodDelete, http.MethodOptions}
-	utils.ValidateHttpRequestMethod(w, r, allowedMethods)
-	if r.Method == http.MethodOptions {
-		utils.SetCorsPreflightResponseHeaders(&w, allowedMethods)
-		logrus.Info(fmt.Sprintf("Register API: Sent response to CORS preflight request from %s", r.RemoteAddr))
-		return
-	}
-
 	id, err := utils.GetQueryParamAsUint(r, idParam)
 	if err != nil {
 		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())

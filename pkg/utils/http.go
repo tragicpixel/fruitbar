@@ -31,34 +31,40 @@ func ValidateHttpRequestMethod(w http.ResponseWriter, r *http.Request, allowedMe
 	}
 }
 
-// EnableCors writes an Access-Control-Allow-Origin header with the given url to the supplied http response writer, enabling CORS for that url.
-func EnableCors(w *http.ResponseWriter, url string) {
+// EnableCORS writes an Access-Control-Allow-Origin header with the given url to the supplied http response writer, enabling CORS for that url.
+func EnableCORS(w *http.ResponseWriter, url string) {
 	// TODO: needs to check the URL against the list of allowed urls and determine if it matches one of the allowed ones, then send it back
 	// this is the recommended way to do it
 	// need a different list of allowed URLs for CRUD API calls, Auth service calls, and Health check calls (?)
 	(*w).Header().Set("Access-Control-Allow-Origin", url)
 }
 
-// SetCorsPreflightResponseHeaders writes the Access-Control-Allow-Methods and Access-Control-Allow-Headers headers to the supplied http response writer.
+// SetCORSPreflightResponseHeaders writes the Access-Control-Allow-Methods and Access-Control-Allow-Headers headers to the supplied http response writer.
 // This gives the requestor all the information they need to make requests on the particular endpoint you are calling this function from.
-func SetCorsPreflightResponseHeaders(w *http.ResponseWriter, allowedMethods []string) {
+func SetCORSPreflightResponseHeaders(w *http.ResponseWriter, allowedMethods []string) {
 	for _, method := range allowedMethods {
 		(*w).Header().Set("Access-Control-Allow-Methods", method)
 	}
 	(*w).Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Access-Control-Allow-Credentials, Access-Control-Allow-Origin")
 }
 
+type CORSOptions struct {
+	AllowedUrl     string
+	APIName        string
+	AllowedMethods []string
+}
+
 // middleware for enabling CORS
-func SendCorsPreflightHeaders(allowedUrl string, apiName string, allowedMethods []string, next http.HandlerFunc) http.HandlerFunc {
+func SendCORSPreflightHeaders(opts CORSOptions, next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		EnableCors(&w, allowedUrl) // ?? is this the right way to do this
-		allowedMethods := []string{http.MethodPost, http.MethodOptions}
-		ValidateHttpRequestMethod(w, r, allowedMethods)
+		EnableCORS(&w, opts.AllowedUrl) // ?? is this the right way to do this
+		ValidateHttpRequestMethod(w, r, opts.AllowedMethods)
 		if r.Method == http.MethodOptions {
-			SetCorsPreflightResponseHeaders(&w, allowedMethods)
-			logrus.Info(fmt.Sprintf(apiName+" API: Sent response to CORS preflight request from %s", r.RemoteAddr))
+			SetCORSPreflightResponseHeaders(&w, opts.AllowedMethods)
+			logrus.Info(fmt.Sprintf("%s API: Sent response to CORS preflight request from %s", opts.APIName, r.RemoteAddr))
 			return
 		}
+		next.ServeHTTP(w, r)
 	})
 }
 
@@ -130,7 +136,7 @@ const (
 // GetPageSeekOptionsByName gets the page seek options for the supplied http request and maximum record limit, using the supplied names for the query parameters.
 // Returns the page seek options and the JSON response, which will be an empty struct unless there is an error.
 func GetPageSeekOptionsByName(r *http.Request, beforeIdParam string, afterIdParam string, limitParam string, limitMax int) (opts *PageSeekOptions, err error) {
-	opts.StartId = 0
+	opts = &PageSeekOptions{StartId: 0}
 	afterIdIsSet := r.URL.Query().Has(afterIdParam)
 	beforeIdIsSet := r.URL.Query().Has(beforeIdParam)
 

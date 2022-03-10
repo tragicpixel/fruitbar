@@ -29,29 +29,65 @@ type ProductsServiceConfig struct {
 	Port               int
 }
 
-func (s *ProductsService) getProductsApiBasePath() string  { return "/products" }
-func (s *ProductsService) getCreateApiHandlerPath() string { return s.getProductsApiBasePath() }
-func (s *ProductsService) getReadApiHandlerPath() string   { return s.getProductsApiBasePath() }
-func (s *ProductsService) getUpdateApiHandlerPath() string { return s.getProductsApiBasePath() }
-func (s *ProductsService) getDeleteApiHandlerPath() string { return s.getProductsApiBasePath() }
-func (s *ProductsService) getHealthCheckApiHandlerPath() string {
-	return s.getProductsApiBasePath() + "/health"
+const (
+	productsAPIBaseRoute   = "/products"
+	productsCreateAPIRoute = productsAPIBaseRoute
+	productsReadAPIRoute   = productsAPIBaseRoute
+	productsUpdateAPIRoute = productsAPIBaseRoute
+	productsDeleteAPIRoute = productsAPIBaseRoute
+	productsHealthAPIRoute = productsAPIBaseRoute + "health"
+)
+
+func (s *ProductsService) getCreateAPICORSOptions() utils.CORSOptions {
+	return utils.CORSOptions{
+		AllowedUrl:     handler.UI_URL,
+		APIName:        "Create Product",
+		AllowedMethods: []string{http.MethodPost, http.MethodOptions},
+	}
+}
+func (s *ProductsService) getReadAPICORSOptions() utils.CORSOptions {
+	return utils.CORSOptions{
+		AllowedUrl:     handler.UI_URL,
+		APIName:        "Read Product",
+		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
+	}
+}
+func (s *ProductsService) getUpdateAPICORSOptions() utils.CORSOptions {
+	return utils.CORSOptions{
+		AllowedUrl:     handler.UI_URL,
+		APIName:        "Update Product",
+		AllowedMethods: []string{http.MethodPut, http.MethodOptions},
+	}
+}
+func (s *ProductsService) getDeleteAPICORSOptions() utils.CORSOptions {
+	return utils.CORSOptions{
+		AllowedUrl:     handler.UI_URL,
+		APIName:        "Delete Product",
+		AllowedMethods: []string{http.MethodDelete, http.MethodOptions},
+	}
+}
+func (s *ProductsService) getHealthCheckAPICORSOptions() utils.CORSOptions {
+	return utils.CORSOptions{
+		AllowedUrl:     handler.UI_URL,
+		APIName:        "Health Check",
+		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
+	}
 }
 
-func (s *ProductsService) getCreateApiAllowedHttpMethods() []string {
-	return []string{http.MethodPost, http.MethodOptions}
+func (s *ProductsService) getCreateAPIHandler() func(http.ResponseWriter, *http.Request) {
+	return s.UserHandler.IsAuthorized(utils.SendCORSPreflightHeaders(s.getCreateAPICORSOptions(), s.Handler.CreateProduct))
 }
-func (s *ProductsService) getReadApiAllowedHttpMethods() []string {
-	return []string{http.MethodGet, http.MethodOptions}
+func (s *ProductsService) getReadAPIHandler() func(http.ResponseWriter, *http.Request) {
+	return s.UserHandler.IsAuthorized(utils.SendCORSPreflightHeaders(s.getReadAPICORSOptions(), s.Handler.GetProducts))
 }
-func (s *ProductsService) getUpdateApiAllowedHttpMethods() []string {
-	return []string{http.MethodPut, http.MethodOptions}
+func (s *ProductsService) getUpdateAPIHandler() func(http.ResponseWriter, *http.Request) {
+	return s.UserHandler.IsAuthorized(utils.SendCORSPreflightHeaders(s.getUpdateAPICORSOptions(), s.Handler.UpdateProduct))
 }
-func (s *ProductsService) getDeleteApiAllowedHttpMethods() []string {
-	return []string{http.MethodDelete, http.MethodOptions}
+func (s *ProductsService) getDeleteAPIHandler() func(http.ResponseWriter, *http.Request) {
+	return s.UserHandler.IsAuthorized(utils.SendCORSPreflightHeaders(s.getDeleteAPICORSOptions(), s.Handler.DeleteProduct))
 }
-func (s *ProductsService) getHealthCheckApiAllowedHttpMethods() []string {
-	return []string{http.MethodGet, http.MethodOptions}
+func (s *ProductsService) getHealthCheckAPIHandler() func(http.ResponseWriter, *http.Request) {
+	return utils.SendCORSPreflightHeaders(s.getHealthCheckAPICORSOptions(), s.CheckHealth)
 }
 
 // NewProductsService creates a new instance of a product listing service.
@@ -116,7 +152,7 @@ func (s *ProductsService) NewProductsServiceRouter(db *driver.DB) *mux.Router {
 	//   '500':
 	//     description: Internal server error.
 	//     "$ref": "#/responses/jsonResponse"
-	r.HandleFunc(s.getCreateApiHandlerPath(), s.UserHandler.IsAuthorized(s.Handler.CreateProduct)).Methods(s.getCreateApiAllowedHttpMethods()...)
+	r.HandleFunc(productsCreateAPIRoute, s.getCreateAPIHandler()).Methods(s.getCreateAPICORSOptions().AllowedMethods...)
 	// swagger:operation GET /products products getProduct
 	//
 	// Get a product by ID, or a paginated listing of all products.
@@ -135,7 +171,7 @@ func (s *ProductsService) NewProductsServiceRouter(db *driver.DB) *mux.Router {
 	//   '200':
 	//     description: Successfully retrieved a product.
 	//     "$ref": "#/responses/jsonResponse"
-	r.HandleFunc(s.getReadApiHandlerPath(), s.UserHandler.IsAuthorized(s.Handler.GetProducts)).Methods(s.getReadApiAllowedHttpMethods()...)
+	r.HandleFunc(productsReadAPIRoute, s.getReadAPIHandler()).Methods(s.getReadAPICORSOptions().AllowedMethods...)
 	// swagger:operation PUT /products products updateProduct
 	//
 	// Update an existing product.
@@ -169,7 +205,7 @@ func (s *ProductsService) NewProductsServiceRouter(db *driver.DB) *mux.Router {
 	//   '500':
 	//     description: Internal server error.
 	//     "$ref": "#/responses/jsonResponse"
-	r.HandleFunc(s.getUpdateApiHandlerPath(), s.UserHandler.IsAuthorized(s.Handler.UpdateProduct)).Methods(s.getUpdateApiAllowedHttpMethods()...)
+	r.HandleFunc(productsUpdateAPIRoute, s.getUpdateAPIHandler()).Methods(s.getUpdateAPICORSOptions().AllowedMethods...)
 	// swagger:operation DELETE /products products deleteProduct
 	//
 	// Delete an existing product.
@@ -202,7 +238,7 @@ func (s *ProductsService) NewProductsServiceRouter(db *driver.DB) *mux.Router {
 	//   '500':
 	//     description: Internal server error.
 	//     "$ref": "#/responses/jsonResponse"
-	r.HandleFunc(s.getDeleteApiHandlerPath(), s.UserHandler.IsAuthorized(s.Handler.DeleteProduct)).Methods(s.getDeleteApiAllowedHttpMethods()...)
+	r.HandleFunc(productsDeleteAPIRoute, s.getDeleteAPIHandler()).Methods(s.getDeleteAPICORSOptions().AllowedMethods...)
 	// swagger:operation GET /products/health products checkHealth
 	//
 	// Checks the health of the service.
@@ -212,7 +248,7 @@ func (s *ProductsService) NewProductsServiceRouter(db *driver.DB) *mux.Router {
 	//   '200':
 	//     description: The health check was completed.
 	//     "$ref": "#/responses/healthCheckResponse"
-	r.HandleFunc(s.getHealthCheckApiHandlerPath(), s.CheckHealth).Methods(s.getHealthCheckApiAllowedHttpMethods()...)
+	r.HandleFunc(productsHealthAPIRoute, s.getHealthCheckAPIHandler()).Methods(s.getHealthCheckAPICORSOptions().AllowedMethods...)
 
 	return r
 }
@@ -222,12 +258,12 @@ func (s *ProductsService) NewProductsServiceRouter(db *driver.DB) *mux.Router {
 func (s *ProductsService) CheckHealth(w http.ResponseWriter, r *http.Request) {
 	var err error
 	logrus.Info("Checking products service health...")
-	theDatabase, err := s.DB.Postgres.DB()
+	db, err := s.DB.Postgres.DB()
 	if err != nil {
 		logrus.Error("products service health check failed: Error getting SQLDB from gorm DB: " + err.Error())
 		utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": false})
 	} else {
-		if err = theDatabase.Ping(); err != nil {
+		if err = db.Ping(); err != nil {
 			logrus.Error("products service health check failed: error pinging the database: " + err.Error())
 			utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": false})
 		} else {

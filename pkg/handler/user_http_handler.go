@@ -42,11 +42,11 @@ func NewUserHandler(db *driver.DB) *User {
 
 // RegisterNewUser creates a new user with the specified username and password, and returns a JSON message if there is an error, otherwise no content.
 func (h *User) RegisterNewUser(w http.ResponseWriter, r *http.Request) {
-	utils.EnableCors(&w, UI_URL)
+	utils.EnableCORS(&w, UI_URL)
 	allowedMethods := []string{http.MethodPost, http.MethodOptions}
 	utils.ValidateHttpRequestMethod(w, r, allowedMethods)
 	if r.Method == http.MethodOptions {
-		utils.SetCorsPreflightResponseHeaders(&w, allowedMethods)
+		utils.SetCORSPreflightResponseHeaders(&w, allowedMethods)
 		logrus.Info(fmt.Sprintf("Register API: Sent response to CORS preflight request from %s", r.RemoteAddr))
 		return
 	}
@@ -100,11 +100,11 @@ func (h *User) RegisterNewUser(w http.ResponseWriter, r *http.Request) {
 // GetPasswordConstraintsMessage always returns a string as data, containing a message for the user with the constraints applied when setting a new password.
 // This way, the service is the single source of truth for information about the password constraints, and it will never be out-of-date on the site UI.
 func (h *User) GetPasswordConstraintsMessage(w http.ResponseWriter, r *http.Request) {
-	utils.EnableCors(&w, UI_URL)
+	utils.EnableCORS(&w, UI_URL)
 	allowedMethods := []string{http.MethodGet, http.MethodOptions}
 	utils.ValidateHttpRequestMethod(w, r, allowedMethods)
 	if r.Method == http.MethodOptions {
-		utils.SetCorsPreflightResponseHeaders(&w, allowedMethods)
+		utils.SetCORSPreflightResponseHeaders(&w, allowedMethods)
 		logrus.Info(fmt.Sprintf("User Get Password Constraints Message API: Sent response to CORS preflight request from %s", r.RemoteAddr))
 		return
 	}
@@ -116,11 +116,11 @@ func (h *User) GetPasswordConstraintsMessage(w http.ResponseWriter, r *http.Requ
 
 // Login attempts to authorize a user based on the supplied credentials (in the http request), and returns a message in JSON on error, or a JSON Web Token on success.
 func (h *User) Login(w http.ResponseWriter, r *http.Request) {
-	utils.EnableCors(&w, UI_URL)
+	utils.EnableCORS(&w, UI_URL)
 	allowedMethods := []string{http.MethodPost, http.MethodOptions}
 	utils.ValidateHttpRequestMethod(w, r, allowedMethods)
 	if r.Method == http.MethodOptions {
-		utils.SetCorsPreflightResponseHeaders(&w, allowedMethods)
+		utils.SetCORSPreflightResponseHeaders(&w, allowedMethods)
 		logrus.Info(fmt.Sprintf("Login API: Sent response to CORS preflight request from %s", r.RemoteAddr))
 		return
 	}

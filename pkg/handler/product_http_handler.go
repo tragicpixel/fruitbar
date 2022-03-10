@@ -33,16 +33,6 @@ func NewProductHandler(db *driver.DB) *Product {
 
 // CreateProduct creates a new product in the repo based on the supplied HTTP request and writes a response over HTTP.
 func (h *Product) CreateProduct(w http.ResponseWriter, r *http.Request) {
-	// TODO: remove this and rewrite the other code to use the CORS middleware
-	utils.EnableCors(&w, UI_URL)
-	allowedMethods := []string{http.MethodPost, http.MethodOptions}
-	utils.ValidateHttpRequestMethod(w, r, allowedMethods)
-	if r.Method == http.MethodOptions {
-		utils.SetCorsPreflightResponseHeaders(&w, allowedMethods)
-		logrus.Info(fmt.Sprintf("Create Product API: Sent response to CORS preflight request from %s", r.RemoteAddr))
-		return
-	}
-
 	var response = utils.JsonResponse{}
 	var product models.Product
 	response = *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &product, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
@@ -74,16 +64,6 @@ func (h *Product) CreateProduct(w http.ResponseWriter, r *http.Request) {
 // The list of products can also be paginated, using the "limit" and "after_id" query parameters.
 // Returns a response in JSON containing either an array of products encoded in JSON or an error message.
 func (h *Product) GetProducts(w http.ResponseWriter, r *http.Request) {
-	// TODO: remove this and rewrite the other code to use the CORS middleware
-	utils.EnableCors(&w, UI_URL)
-	allowedMethods := []string{http.MethodGet, http.MethodOptions}
-	utils.ValidateHttpRequestMethod(w, r, allowedMethods)
-	if r.Method == http.MethodOptions {
-		utils.SetCorsPreflightResponseHeaders(&w, allowedMethods)
-		logrus.Info(fmt.Sprintf("Read Products API: Sent response to CORS preflight request from %s", r.RemoteAddr))
-		return
-	}
-
 	var response = utils.JsonResponse{}
 	if r.URL.Query().Has(idParam) {
 		// Read a single product
@@ -141,16 +121,6 @@ func (h *Product) GetProducts(w http.ResponseWriter, r *http.Request) {
 // UpdateProduct updates an existing product in the repo based on the supplied JSON request, and returns a status message in JSON to the user.
 // If price is not set or set to zero, it will be ignored.
 func (h *Product) UpdateProduct(w http.ResponseWriter, r *http.Request) {
-	// TODO: remove this and rewrite the other code to use the CORS middleware
-	utils.EnableCors(&w, UI_URL)
-	allowedMethods := []string{http.MethodPut, http.MethodOptions}
-	utils.ValidateHttpRequestMethod(w, r, allowedMethods)
-	if r.Method == http.MethodOptions {
-		utils.SetCorsPreflightResponseHeaders(&w, allowedMethods)
-		logrus.Info(fmt.Sprintf("Update Products API: Sent response to CORS preflight request from %s", r.RemoteAddr))
-		return
-	}
-
 	var response = utils.JsonResponse{}
 	var product models.Product
 	response = *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &product, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
@@ -203,16 +173,6 @@ func (h *Product) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 
 // DeleteProduct deletes an existing product from the repo based on the supplied http request, and returns a status message in JSON to the user.
 func (h *Product) DeleteProduct(w http.ResponseWriter, r *http.Request) {
-	// TODO: remove this and rewrite the other code to use the CORS middleware
-	utils.EnableCors(&w, UI_URL)
-	allowedMethods := []string{http.MethodDelete, http.MethodOptions}
-	utils.ValidateHttpRequestMethod(w, r, allowedMethods)
-	if r.Method == http.MethodOptions {
-		utils.SetCorsPreflightResponseHeaders(&w, allowedMethods)
-		logrus.Info(fmt.Sprintf("Delete Products API: Sent response to CORS preflight request from %s", r.RemoteAddr))
-		return
-	}
-
 	// Validate product id parameter
 	id, err := utils.GetQueryParamAsUint(r, idParam)
 	if err != nil {

@@ -89,6 +89,7 @@ func (h *Product) GetProducts(w http.ResponseWriter, r *http.Request) {
 		seek, err := utils.GetPageSeekOptions(r, readPageMaxLimit)
 		if response.Error != nil {
 			utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
+			return
 		}
 
 		logrus.Info(fmt.Sprintf("Reading %d products (max %d)...", seek.RecordLimit, readPageMaxLimit))
@@ -124,8 +125,9 @@ func (h *Product) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 	var response = utils.JsonResponse{}
 	var product models.Product
 	response = *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &product, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
-	if response.Error != nil { // Updated product was successfully decoded
+	if response.Error != nil {
 		utils.WriteJSONErrorResponse(w, response.Error.Code, response.Error.Message)
+		return
 	}
 
 	if r.URL.Query().Has(fieldsParam) {
@@ -161,8 +163,8 @@ func (h *Product) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 		logrus.Info(fmt.Sprintf("Updating Product (id: %d) to %+v", product.ID, product))
 		updated, err := h.repo.Update(&product, []string{})
 		if err != nil {
-			logrus.Error(fmt.Sprintf("Error fully updating Product with id = %d: %+v: %s", product.ID, product, err.Error()))
-			response = utils.NewJsonResponseWithError(http.StatusInternalServerError, "Internal error: Failed to fully update existing product.")
+			logMsg := fmt.Sprintf("Error fully updating Product with id = %d: %+v: %s", product.ID, product, err.Error())
+			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 			return
 		}
 		logrus.Info(fmt.Sprintf("Fully updated Product (id: %d): %+v", product.ID, updated))

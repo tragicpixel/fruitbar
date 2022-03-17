@@ -165,7 +165,6 @@ func DecodeJSONBodyAndGetErrorResponse(w http.ResponseWriter, r *http.Request, d
 			return &JsonResponse{Error: &JsonErrorResponse{Code: request.Status, Message: request.Message}}
 		} else { // The error is not a malformed request error
 			msg := "Failed to decode JSON body: " + err.Error()
-			logrus.Error(msg)
 			return &JsonResponse{Error: &JsonErrorResponse{Code: http.StatusInternalServerError, Message: msg}}
 		}
 	} else { // The json body was successfully decoded

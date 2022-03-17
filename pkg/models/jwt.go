@@ -12,6 +12,7 @@ type JwtWrapper struct {
 // JwtClaim holds the standard JWT claim in addition to any other claims made that will need to be verified by the fruitbar application.
 type JwtClaim struct {
 	jwt.StandardClaims
-	Username string // TODO: just put the user id and lookup the username/role as needed from the database instead of putting it in the claims? (more secure)
-	Role     string
+	UserID   uint
+	UserName string
+	UserRole string
 }

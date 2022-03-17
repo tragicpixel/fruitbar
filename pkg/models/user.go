@@ -55,9 +55,9 @@ func getPasswordMinLength() int         { return 8 }
 func getPasswordMaxLength() int         { return 100 }
 func getValidSpecialCharacters() string { return "!@#$%^&*()-_=[];',./?~`" }
 
-// GetPasswordConstraintsMessage returns a string containing information about the constraints applied when validating a password.
+// GetPasswordFormatMessage returns a string containing information about the constraints applied when validating a password.
 // The goal of having this function is to keep information about the password constraints limited to a single source of truth: directly in the code, so it's always up to date.
-func GetPasswordConstraintsMessage() string {
+func GetPasswordFormatMessage() string {
 	msg := "Password must be between " + strconv.Itoa(getPasswordMinLength()) + " and " + strconv.Itoa(getPasswordMaxLength()) + " characters long, "
 	msg += "contain at least one digit, "
 	msg += "contain at least one of the following special characters: " + getValidSpecialCharacters()
@@ -142,4 +142,26 @@ func ValidateRole(role string) (bool, error) {
 	} else {
 		return true, nil
 	}
+}
+
+// ValidatePartialProductUpdate validates the supplied selected fields of the supplied product.
+func ValidatePartialUserUpdate(user *User, selectedFields []string) (bool, error) {
+	var err error
+	// this is not very maintainable in the long run, your options are:
+	// write a custom json.Marshal method
+	// use code generation tools to extract the names in the json annotation
+	for _, field := range selectedFields {
+		switch field {
+		case "name":
+			_, err = ValidateUserName(user.Name)
+		case "password":
+			_, err = ValidatePassword(user.Password)
+		case "role":
+			_, err = ValidateRole(user.Role)
+		}
+		if err != nil {
+			return false, err
+		}
+	}
+	return true, nil
 }

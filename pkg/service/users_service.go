@@ -33,17 +33,90 @@ const (
 	usersServiceHealthCheckApiHandlerPath = "/users/health"
 )
 
-func getUsersRegisterApiAllowedHttpMethods() []string {
-	return []string{http.MethodPost, http.MethodOptions}
+const (
+	usersAPIBaseRoute           = "/users"
+	usersCreateAPIRoute         = usersAPIBaseRoute + "/register" // for now, remove /register later
+	usersReadAPIRoute           = usersAPIBaseRoute
+	usersUpdateAPIRoute         = usersAPIBaseRoute
+	usersDeleteAPIRoute         = usersAPIBaseRoute
+	usersLoginAPIRoute          = usersAPIBaseRoute + "/login"
+	usersPasswordFormatAPIRoute = usersAPIBaseRoute + "/password-format"
+	usersHealthAPIRoute         = usersAPIBaseRoute + "/health"
+)
+
+func (s *UsersService) getCreateAPIOptions() utils.CORSOptions {
+	return utils.CORSOptions{
+		AllowedUrl:     handler.UI_URL,
+		APIName:        "Create User",
+		AllowedMethods: []string{http.MethodPost, http.MethodOptions},
+	}
 }
-func getUsersLoginApiAllowedHttpMethods() []string {
-	return []string{http.MethodPost, http.MethodOptions}
+func (s *UsersService) getReadAPIOptions() utils.CORSOptions {
+	return utils.CORSOptions{
+		AllowedUrl:     handler.UI_URL,
+		APIName:        "Read User",
+		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
+	}
 }
-func getUsersHealthCheckApiAllowedHttpMethods() []string {
-	return []string{http.MethodGet, http.MethodOptions}
+func (s *UsersService) getUpdateAPIOptions() utils.CORSOptions {
+	return utils.CORSOptions{
+		AllowedUrl:     handler.UI_URL,
+		APIName:        "Update User",
+		AllowedMethods: []string{http.MethodPut, http.MethodOptions},
+	}
+}
+func (s *UsersService) getDeleteAPIOptions() utils.CORSOptions {
+	return utils.CORSOptions{
+		AllowedUrl:     handler.UI_URL,
+		APIName:        "Delete User",
+		AllowedMethods: []string{http.MethodDelete, http.MethodOptions},
+	}
+}
+func (s *UsersService) getLoginAPIOptions() utils.CORSOptions {
+	return utils.CORSOptions{
+		AllowedUrl:     handler.UI_URL,
+		APIName:        "Login User",
+		AllowedMethods: []string{http.MethodPost, http.MethodOptions},
+	}
+}
+func (s *UsersService) getPasswordFormatAPIOptions() utils.CORSOptions {
+	return utils.CORSOptions{
+		AllowedUrl:     handler.UI_URL,
+		APIName:        "Password Format",
+		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
+	}
+}
+func (s *UsersService) getHealthCheckAPIOptions() utils.CORSOptions {
+	return utils.CORSOptions{
+		AllowedUrl:     handler.UI_URL,
+		APIName:        "Health Check",
+		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
+	}
 }
 
-// NewUsersService creates a new instance of an authentication service.
+func (s *UsersService) getCreateAPIHandler() func(http.ResponseWriter, *http.Request) {
+	return utils.SendCORSPreflightHeaders(s.getCreateAPIOptions(), s.Handler.CreateUser) // update perms??
+}
+func (s *UsersService) getReadAPIHandler() func(http.ResponseWriter, *http.Request) {
+	return utils.SendCORSPreflightHeaders(s.getReadAPIOptions(), s.Handler.GetUsers) // change to read, update perms
+}
+func (s *UsersService) getUpdateAPIHandler() func(http.ResponseWriter, *http.Request) {
+	return utils.SendCORSPreflightHeaders(s.getUpdateAPIOptions(), s.Handler.UpdateUser) // change to update, update perms
+}
+func (s *UsersService) getDeleteAPIHandler() func(http.ResponseWriter, *http.Request) {
+	return utils.SendCORSPreflightHeaders(s.getDeleteAPIOptions(), s.Handler.DeleteUser) // change to delete, update perms
+}
+func (s *UsersService) getLoginAPIHandler() func(http.ResponseWriter, *http.Request) {
+	return utils.SendCORSPreflightHeaders(s.getLoginAPIOptions(), s.Handler.Login)
+}
+func (s *UsersService) getPasswordFormatAPIHandler() func(http.ResponseWriter, *http.Request) {
+	return utils.SendCORSPreflightHeaders(s.getPasswordFormatAPIOptions(), s.Handler.GetPasswordFormatMessage)
+}
+func (s *UsersService) getHealthCheckAPIHandler() func(http.ResponseWriter, *http.Request) {
+	return utils.SendCORSPreflightHeaders(s.getHealthCheckAPIOptions(), s.CheckHealth)
+}
+
+// NewUsersService creates a new instance of a users service.
 // Returns nil on error.
 func NewUsersService(config *UsersServiceConfig) (*UsersService, error) {
 	s := UsersService{}
@@ -67,7 +140,7 @@ func NewUsersService(config *UsersServiceConfig) (*UsersService, error) {
 	return &s, nil
 }
 
-// NewUsersServiceRouter creates and returns a new http router for the authentication service.
+// NewUsersServiceRouter creates and returns a new http router for the users service.
 func (s *UsersService) NewUsersServiceRouter(db *driver.DB) *mux.Router {
 	r := mux.NewRouter()
 
@@ -99,7 +172,7 @@ func (s *UsersService) NewUsersServiceRouter(db *driver.DB) *mux.Router {
 	//   '500':
 	//     description: Internal server error.
 	//     "$ref": "#/responses/jsonResponse"
-	r.HandleFunc(usersServiceLoginApiHandlerPath, s.Handler.Login).Methods(getUsersLoginApiAllowedHttpMethods()...)
+	r.HandleFunc(usersLoginAPIRoute, s.getLoginAPIHandler()).Methods(s.getLoginAPIOptions().AllowedMethods...)
 	// swagger:operation POST /users/register users createUser
 	//
 	// Create a new user.
@@ -125,17 +198,112 @@ func (s *UsersService) NewUsersServiceRouter(db *driver.DB) *mux.Router {
 	//   '500':
 	//     description: Internal server error.
 	//     "$ref": "#/responses/jsonResponse"
-	r.HandleFunc(usersServiceRegisterApiHandlerPath, s.Handler.RegisterNewUser).Methods(getUsersRegisterApiAllowedHttpMethods()...)
+	r.HandleFunc(usersCreateAPIRoute, s.getCreateAPIHandler()).Methods(s.getCreateAPIOptions().AllowedMethods...)
+	// swagger:operation GET /users users getUser
+	//
+	// Get a single user by ID, or a paginated array of all users.
+	//
+	// ---
+	// parameters:
+	// - name: id
+	//   in: query
+	//   description: id of user to retrieve.
+	//   required: false
+	//   schema:
+	//     type: int
+	// security:
+	// - bearer: []
+	// responses:
+	//   '200':
+	//     description: Successfully retrieved a user.
+	//     "$ref": "#/responses/jsonResponse"
+	r.HandleFunc(usersReadAPIRoute, s.getReadAPIHandler()).Methods(s.getReadAPIOptions().AllowedMethods...)
+	// swagger:operation PUT /users users updateUser
+	//
+	// Update an existing uuser.
+	//
+	// ---
+	// parameters:
+	// - name: user
+	//   in: body
+	//   description: user fields to update. CreatedAt, DeletedAt, UpdatedAt fields will be ignored.
+	//   required: true
+	//   schema:
+	//     $ref: "#/definitions/user"
+	// security:
+	// - bearer: []
+	// responses:
+	//   '200':
+	//     description: Successfully updated an existing user.
+	//     "$ref": "#/responses/jsonResponse"
+	//   '400':
+	//     description: Invalid request.
+	//     "$ref": "#/responses/jsonResponse"
+	//   '401':
+	//     description: Not authorized.
+	//   '403':
+	//     description: No authorization header provided.
+	//   '405':
+	//     description: HTTP method not allowed.
+	//   '413':
+	//     description: Request body too large.
+	//     "$ref": "#/responses/jsonResponse"
+	//   '500':
+	//     description: Internal server error.
+	//     "$ref": "#/responses/jsonResponse"
+	r.HandleFunc(usersUpdateAPIRoute, s.getUpdateAPIHandler()).Methods(s.getUpdateAPIOptions().AllowedMethods...)
+	// swagger:operation DELETE /users users deleteUser
+	//
+	// Delete an existing user.
+	//
+	// ---
+	// parameters:
+	// - name: id
+	//   in: query
+	//   description: id of user to delete.
+	//   required: true
+	//   schema:
+	//     type: int
+	// security:
+	// - bearer: []
+	// responses:
+	//   '204':
+	//     description: Successfully deleted an existing user.
+	//   '400':
+	//     description: Invalid request.
+	//     "$ref": "#/responses/jsonResponse"
+	//   '401':
+	//     description: Not authorized.
+	//   '403':
+	//     description: No authorization header provided.
+	//   '405':
+	//     description: HTTP method not allowed.
+	//   '413':
+	//     description: Request body too large.
+	//     "$ref": "#/responses/jsonResponse"
+	//   '500':
+	//     description: Internal server error.
+	//     "$ref": "#/responses/jsonResponse"
+	r.HandleFunc(usersDeleteAPIRoute, s.getDeleteAPIHandler()).Methods(s.getDeleteAPIOptions().AllowedMethods...)
+	// swagger:operation GET /users/password-format users getPasswordFormat
+	//
+	// Returns a string containing information about the expected format of a password.
+	//
+	// ---
+	// responses:
+	//   '200':
+	//     description: The password format message was returned successfully.
+	r.HandleFunc(usersPasswordFormatAPIRoute, s.getPasswordFormatAPIHandler()).Methods(s.getPasswordFormatAPIOptions().AllowedMethods...)
 	// swagger:operation GET /users/health users checkHealth
 	//
-	// Checks the health of the service.
+	// Checks the health of the service and sends a response indicating if the health check passed.
 	//
 	// ---
 	// responses:
 	//   '200':
 	//     description: The health check was completed.
 	//     "$ref": "#/responses/healthCheckResponse"
-	r.HandleFunc(usersServiceHealthCheckApiHandlerPath, s.CheckHealth).Methods(getUsersHealthCheckApiAllowedHttpMethods()...)
+	r.HandleFunc(usersHealthAPIRoute, s.getHealthCheckAPIHandler()).Methods(s.getHealthCheckAPIOptions().AllowedMethods...)
 
 	return r
 }
@@ -157,17 +325,17 @@ func SetupUsersServiceDB(db *driver.DB, init bool) error {
 func (s *UsersService) CheckHealth(w http.ResponseWriter, r *http.Request) {
 	var err error
 	logrus.Info("Checking users service health...")
-	theDatabase, err := s.DB.Postgres.DB()
+	db, err := s.DB.Postgres.DB()
 	if err != nil {
 		logrus.Error("health check failed: Error getting SQLDB from gorm DB: " + err.Error())
 		utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": false})
-	} else {
-		if err = theDatabase.Ping(); err != nil {
-			logrus.Error("health check failed: error pinging the database: " + err.Error())
-			utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": false})
-		} else {
-			logrus.Info("health check passed")
-			utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": true})
-		}
+		return
 	}
+	if err = db.Ping(); err != nil {
+		logrus.Error("health check failed: error pinging the database: " + err.Error())
+		utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": false})
+		return
+	}
+	logrus.Info("health check passed")
+	utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": true})
 }

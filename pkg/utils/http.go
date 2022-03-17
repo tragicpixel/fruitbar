@@ -182,7 +182,7 @@ func GetPageSeekOptions(r *http.Request, maxLimit int) (opts *PageSeekOptions, e
 }
 
 func WriteJSONErrorResponse(w http.ResponseWriter, status int, errMsg string, logMsg ...string) {
-	if logMsg == nil {
+	if logMsg != nil {
 		logrus.Error(logMsg)
 	} else {
 		logrus.Error(errMsg)

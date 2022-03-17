@@ -3,9 +3,11 @@ package jwt
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/sirupsen/logrus"
 	"github.com/tragicpixel/fruitbar/pkg/models"
 	"github.com/tragicpixel/fruitbar/pkg/repository"
 )
@@ -24,9 +26,11 @@ func (r *JWTRepository) GenerateToken(j *models.JwtWrapper, u *models.User) (sig
 			ExpiresAt: time.Now().Local().Add(time.Hour * time.Duration(j.ExpirationHours)).Unix(),
 			Issuer:    j.Issuer,
 		},
-		Username: u.Name,
-		Role:     u.Role,
+		UserID:   u.ID,
+		UserName: u.Name,
+		UserRole: u.Role,
 	}
+	logrus.Info(fmt.Sprintf("Generated token with user id %d and role %s", claims.UserID, claims.UserRole))
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	signedToken, err = token.SignedString([]byte(j.SecretKey))
 	if err != nil {
@@ -75,5 +79,5 @@ func (r *JWTRepository) GetRole(j *models.JwtWrapper, signedToken string) (role 
 		err = errors.New("couldn't parse claims")
 		return
 	}
-	return claims.Role, nil
+	return claims.UserRole, nil
 }

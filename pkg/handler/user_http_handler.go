@@ -1,14 +1,14 @@
 package handler
 
 import (
-	"strconv"
-
 	"github.com/tragicpixel/fruitbar/pkg/driver"
 	"github.com/tragicpixel/fruitbar/pkg/models"
 	"github.com/tragicpixel/fruitbar/pkg/repository"
 	jwtrepo "github.com/tragicpixel/fruitbar/pkg/repository/jwt"
 	userrepo "github.com/tragicpixel/fruitbar/pkg/repository/user"
 	"github.com/tragicpixel/fruitbar/pkg/utils"
+	jwtutils "github.com/tragicpixel/fruitbar/pkg/utils/jwt"
+	stringutils "github.com/tragicpixel/fruitbar/pkg/utils/string"
 	"gorm.io/gorm"
 
 	"errors"
@@ -21,9 +21,7 @@ import (
 
 // TODO: How to properly store these???
 const (
-	SECRET_KEY = "verysecretkey"
-	ISSUER     = "fruitbar"
-	UI_URL     = "http://localhost:3000"
+	UI_URL = "http://localhost:3000"
 )
 
 // User represents an http handler for performing operations on a repository of user accounts.
@@ -40,142 +38,279 @@ func NewUserHandler(db *driver.DB) *User {
 	}
 }
 
-// RegisterNewUser creates a new user with the specified username and password, and returns a JSON message if there is an error, otherwise no content.
-func (h *User) RegisterNewUser(w http.ResponseWriter, r *http.Request) {
-	utils.EnableCORS(&w, UI_URL)
-	allowedMethods := []string{http.MethodPost, http.MethodOptions}
-	utils.ValidateHttpRequestMethod(w, r, allowedMethods)
-	if r.Method == http.MethodOptions {
-		utils.SetCORSPreflightResponseHeaders(&w, allowedMethods)
-		logrus.Info(fmt.Sprintf("Register API: Sent response to CORS preflight request from %s", r.RemoteAddr))
+// CreateUser creates a new user with the specified username and password, and returns a JSON message if there is an error, otherwise no content.
+func (h *User) CreateUser(w http.ResponseWriter, r *http.Request) {
+	var response = utils.JsonResponse{}
+	var user models.User
+	response = *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &user, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
+	if response.Error != nil {
+		utils.WriteJSONErrorResponse(w, response.Error.Code, response.Error.Message)
 		return
 	}
-	logrus.Info("Starting login process...")
 
-	response := utils.JsonResponse{}
-	user := models.User{}
-	err := utils.DecodeJSONBody(w, r, &user, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
+	_, err := models.ValidateRole(user.Role)
 	if err != nil {
-		var request *utils.MalformedRequestError
-		if errors.As(err, &request) {
-			response = utils.JsonResponse{Error: &utils.JsonErrorResponse{Code: request.Status, Message: request.Message}}
-		} else {
-			msg := "failed to decode JSON body: " + err.Error()
-			logrus.Error(msg)
-			response = utils.JsonResponse{Error: &utils.JsonErrorResponse{Code: http.StatusInternalServerError, Message: msg}}
-		}
+		msg := "Role is invalid: " + err.Error()
+		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, msg)
+		return
 	}
-	user.Role = models.GetCustomerRoleId() // all users created as customers by default, an admin account must edit the user to change it.
 
-	existingUser, _ := h.repo.GetByUsername(user.Name)
+	tokenClaims, err := jwtutils.GetTokenClaims(r, h.jwtRepo)
+	if err != nil {
+		logMsg := "Authorization failed: " + err.Error()
+		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Authorization Failed", logMsg)
+		return
+	}
+	if user.Role != models.GetCustomerRoleId() && tokenClaims.UserRole != models.GetAdminRoleId() {
+		logrus.Error(fmt.Sprintf("user role: %s, token claims: %v+", user.Role, tokenClaims))
+		logrus.Error("Authorization failed: Must be an admin level user to create employees or admin level users")
+		http.Error(w, "Authorization failed.", http.StatusUnauthorized)
+		return
+	}
+
+	existingUser, err := h.repo.GetByUsername(user.Name)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		logMsg := fmt.Sprintf("Failed to check if user %s exists: %s", user.Name, err.Error())
+		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		return
+	}
 	if existingUser != nil {
-		msg := fmt.Sprintf("failed to create user %s: user with that name already exists", user.Name)
-		logrus.Error(msg)
-		response = utils.JsonResponse{Error: &utils.JsonErrorResponse{Code: http.StatusBadRequest, Message: msg}}
-	} else {
-		err = h.repo.HashPassword(&user, user.Password)
-		if err != nil {
-			logrus.Error("failed to hash password: " + err.Error())
-			response = utils.JsonResponse{Error: &utils.JsonErrorResponse{Code: http.StatusInternalServerError, Message: "Failed to hash password."}}
-		} else {
-			logrus.Info("Creating new user...")
-			uId, err := h.repo.Create(r.Context(), &user)
-			if err != nil {
-				logrus.Error("failed to create new user: " + err.Error())
-				response = utils.JsonResponse{Error: &utils.JsonErrorResponse{Code: http.StatusInternalServerError, Message: "Failed to create new user."}}
-			} else {
-				logrus.Info(fmt.Sprintf("Created new user '%s' with id = %d", user.Name, uId))
-				response = utils.JsonResponse{Id: strconv.Itoa(int(uId))}
-			}
-		}
+		msg := fmt.Sprintf("Failed to create user %s: a user with that name already exists", user.Name)
+		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, msg)
+		return
 	}
 
-	if response.Error != nil {
-		utils.WriteJSONResponse(w, response.Error.Code, response)
+	err = h.repo.HashPassword(&user, user.Password)
+	if err != nil {
+		logMsg := fmt.Sprintf("failed to hash password: %s", err.Error())
+		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		return
+	}
+
+	logrus.Info("Creating new user...")
+	id, err := h.repo.Create(&user)
+	if err != nil {
+		logMsg := fmt.Sprintf("Failed to create new user %s: %s", user.Name, err.Error())
+		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		return
+	}
+	logrus.Info(fmt.Sprintf("Created new user '%s' (id: %d)", user.Name, id))
+	response = utils.JsonResponse{Data: id} // TODO: Figure out the new format for returning ids/data and change this
+	utils.WriteJSONResponse(w, http.StatusOK, response)
+}
+
+// GetUsers retrieves either a single users in the database if the "id" query parameter is supplied, or a list of users in the database if it is not.
+// The list of products can also be paginated, using the "limit" and "after_id" query parameters.
+// Returns a response in JSON containing either an array of users encoded in JSON or an error message.
+func (h *User) GetUsers(w http.ResponseWriter, r *http.Request) {
+	var response = utils.JsonResponse{}
+	if r.URL.Query().Has(idParam) {
+		// Read a single user
+		id, err := utils.GetQueryParamAsUint(r, idParam)
+		if err != nil {
+			utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		logrus.Info(fmt.Sprintf("Reading user (id: %d)...", id))
+		var user *models.User
+		user, err = h.repo.GetByID(id)
+		if err != nil {
+			logMsg := fmt.Sprintf("Error reading user (id: %d): %s", id, err.Error())
+			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+			return
+		}
+		logrus.Info(fmt.Sprintf("Read user (id: %d)", id))
+		response = utils.JsonResponse{Data: []*models.User{user}}
+		utils.WriteJSONResponse(w, http.StatusOK, response)
 	} else {
+		// Read a page of users
+		var seek *utils.PageSeekOptions
+		seek, err := utils.GetPageSeekOptions(r, readPageMaxLimit)
+		if response.Error != nil {
+			utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		logrus.Info(fmt.Sprintf("Reading %d users (max %d)...", seek.RecordLimit, readPageMaxLimit))
+		var users []*models.User
+		users, err = h.repo.Fetch(seek)
+		if err != nil {
+			logMsg := fmt.Sprintf("Error reading users: %s", err.Error())
+			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+			return
+		}
+		count, err := h.repo.Count(seek)
+		if err != nil {
+			logMsg := fmt.Sprintf("Error counting users: %s", err.Error())
+			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+			return
+		}
+		startID, endID := uint(0), uint(0)
+		if len(users) > 0 {
+			startID = users[0].ID
+			endID = users[len(users)-1].ID
+		}
+		rangeStr := fmt.Sprintf("users=%d-%d/%d", startID, endID, count)
+		w.Header().Set("Content-Range", rangeStr)
+		logrus.Info(fmt.Sprintf("Read %d users", len(users)))
+		response = utils.JsonResponse{Data: users}
 		utils.WriteJSONResponse(w, http.StatusOK, response)
 	}
 }
 
-// GetPasswordConstraintsMessage always returns a string as data, containing a message for the user with the constraints applied when setting a new password.
-// This way, the service is the single source of truth for information about the password constraints, and it will never be out-of-date on the site UI.
-func (h *User) GetPasswordConstraintsMessage(w http.ResponseWriter, r *http.Request) {
-	utils.EnableCORS(&w, UI_URL)
-	allowedMethods := []string{http.MethodGet, http.MethodOptions}
-	utils.ValidateHttpRequestMethod(w, r, allowedMethods)
-	if r.Method == http.MethodOptions {
-		utils.SetCORSPreflightResponseHeaders(&w, allowedMethods)
-		logrus.Info(fmt.Sprintf("User Get Password Constraints Message API: Sent response to CORS preflight request from %s", r.RemoteAddr))
+// UpdateProduct updates an existing product in the repo based on the supplied JSON request, and returns a status message in JSON to the user.
+// If price is not set or set to zero, it will be ignored.
+func (h *User) UpdateUser(w http.ResponseWriter, r *http.Request) {
+	var response = utils.JsonResponse{}
+	var user models.User
+	response = *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &user, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
+	if response.Error != nil {
+		utils.WriteJSONErrorResponse(w, response.Error.Code, response.Error.Message)
 		return
 	}
 
+	if r.URL.Query().Has(fieldsParam) {
+		// Partially update user
+		fieldsStr := r.URL.Query().Get(fieldsParam)
+		fields := strings.Split(fieldsStr, ",")
+
+		_, err := models.ValidatePartialUserUpdate(&user, fields)
+		if err != nil {
+			utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "User "+validationFailedMsg+err.Error())
+			return
+		}
+
+		if stringutils.IsStringInSlice("password", fields) {
+			logrus.Info(fmt.Sprintf("Password changed for user %s: Hashing password...", user.Name))
+			err = h.repo.HashPassword(&user, user.Password)
+			if err != nil {
+				logMsg := fmt.Sprintf("Failed to hash password: %s", err.Error())
+				utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+				return
+			}
+		}
+
+		logrus.Info(fmt.Sprintf("Updating User (id: %d) fields (%s) to %+v", user.ID, fieldsStr, user))
+		updated, err := h.repo.Update(&user, fields)
+		if err != nil {
+			logMsg := fmt.Sprintf("Error partially updating User (id: %d)  fields (%s) : %s", user.ID, fieldsStr, err.Error())
+			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+			return
+		}
+		logrus.Info(fmt.Sprintf("Partially updated User (id: %d) fields (%s): %+v", user.ID, fieldsStr, updated))
+		response = utils.JsonResponse{Data: []*models.User{&user}}
+		utils.WriteJSONResponse(w, http.StatusOK, response)
+		return
+	} else {
+		// Fully update user
+		_, err := models.ValidateUser(&user)
+		if err != nil {
+			utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "User "+validationFailedMsg+err.Error())
+			return
+		}
+
+		err = h.repo.HashPassword(&user, user.Password)
+		if err != nil {
+			logMsg := fmt.Sprintf("Failed to hash password: %s", err.Error())
+			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+			return
+		}
+
+		logrus.Info(fmt.Sprintf("Updating User (id: %d) to %+v", user.ID, user))
+		updated, err := h.repo.Update(&user, []string{})
+		if err != nil {
+			logMsg := fmt.Sprintf("Error fully updating User with id = %d: %+v: %s", user.ID, user, err.Error())
+			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+			return
+		}
+		logrus.Info(fmt.Sprintf("Fully updated User (id: %d): %+v", user.ID, updated))
+		response = utils.JsonResponse{Data: []*models.User{&user}}
+		utils.WriteJSONResponse(w, http.StatusOK, response)
+	}
+}
+
+// DeleteProduct deletes an existing user from the repo based on the supplied http request, and returns a status message in JSON to the user.
+func (h *User) DeleteUser(w http.ResponseWriter, r *http.Request) {
+	id, err := utils.GetQueryParamAsUint(r, idParam)
+	if err != nil {
+		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	tokenClaims, err := jwtutils.GetTokenClaims(r, h.jwtRepo)
+	if err != nil {
+		logMsg := "Authorization failed: " + err.Error()
+		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Authorization Failed", logMsg)
+		return
+	}
+	if tokenClaims.UserID == id {
+		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "A user cannot delete themselves.")
+		return
+	}
+
+	logrus.Info(fmt.Sprintf("Deleting User (id: %d)...", id))
+	err = h.repo.Delete(id)
+	if err != nil {
+		logMsg := fmt.Sprintf("Error deleting User (id: %d): %s", id, err.Error())
+		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		return
+	}
+	logrus.Info(fmt.Sprintf("Successfully deleted User with id = %d.", id))
 	response := utils.JsonResponse{}
-	response.Data = models.GetPasswordConstraintsMessage()
-	utils.WriteJSONResponse(w, http.StatusOK, response)
+	utils.WriteJSONResponse(w, http.StatusNoContent, response)
+}
+
+// GetPasswordFormatMessage always sends a response containing a message explaining the constraints applied when setting a new password.
+// This is the single source of truth for information about the expected format of a new password.
+func (h *User) GetPasswordFormatMessage(w http.ResponseWriter, r *http.Request) {
+	utils.WriteJSONResponse(w, http.StatusOK, utils.JsonResponse{Data: models.GetPasswordFormatMessage()})
 }
 
 // Login attempts to authorize a user based on the supplied credentials (in the http request), and returns a message in JSON on error, or a JSON Web Token on success.
 func (h *User) Login(w http.ResponseWriter, r *http.Request) {
-	utils.EnableCORS(&w, UI_URL)
-	allowedMethods := []string{http.MethodPost, http.MethodOptions}
-	utils.ValidateHttpRequestMethod(w, r, allowedMethods)
-	if r.Method == http.MethodOptions {
-		utils.SetCORSPreflightResponseHeaders(&w, allowedMethods)
-		logrus.Info(fmt.Sprintf("Login API: Sent response to CORS preflight request from %s", r.RemoteAddr))
-		return
-	}
-	logrus.Info("Starting login process...")
-
-	response := utils.JsonResponse{}
 	user := models.User{}
 	err := utils.DecodeJSONBody(w, r, &user, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
 	if err != nil {
 		var request *utils.MalformedRequestError
 		if errors.As(err, &request) {
-			response = utils.JsonResponse{Error: &utils.JsonErrorResponse{Code: request.Status, Message: request.Message}}
-		} else {
-			msg := "failed to decode JSON body: " + err.Error()
-			logrus.Error(msg)
-			response = utils.JsonResponse{Error: &utils.JsonErrorResponse{Code: http.StatusInternalServerError, Message: msg}}
+			utils.WriteJSONErrorResponse(w, request.Status, request.Message)
+			return
 		}
+		logMsg := fmt.Sprintf("Failed to decode JSON body: %s", err.Error())
+		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 	}
 
 	storedUser, err := h.repo.GetByUsername(user.Name)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			logrus.Error(fmt.Sprintf("failed to find user with username: %s: %s", user.Name, err.Error()))
-			response = utils.JsonResponse{Error: &utils.JsonErrorResponse{Code: http.StatusBadRequest, Message: "Invalid user credentials."}}
-		} else {
-			logrus.Error(fmt.Sprintf("failed to retrieve list of users: " + err.Error()))
-			response = utils.JsonResponse{Error: &utils.JsonErrorResponse{Code: http.StatusInternalServerError, Message: "Internal server error. Please contact your network administrator."}}
+			logMsg := fmt.Sprintf("failed to find user with username: %s: %s", user.Name, err.Error())
+			utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Invalid user credentials.", logMsg)
+			return
 		}
-	} else {
-		err = h.repo.CheckPassword(storedUser, user.Password)
-		if err != nil {
-			logrus.Error(fmt.Sprintf("failed to authenticate user %s: password check failed: %s", user.Name, err.Error()))
-			response = utils.JsonResponse{Error: &utils.JsonErrorResponse{Code: http.StatusBadRequest, Message: "Invalid user credentials."}}
-		} else {
-			jwt := models.JwtWrapper{
-				SecretKey:       SECRET_KEY,
-				Issuer:          ISSUER,
-				ExpirationHours: 24,
-			}
-			signedToken, err := h.jwtRepo.GenerateToken(&jwt, &user)
-			if err != nil {
-				logrus.Error(fmt.Sprintf("failed to sign token: %s", err.Error()))
-				response = utils.JsonResponse{Error: &utils.JsonErrorResponse{Code: http.StatusInternalServerError, Message: "Failed to sign token."}}
-			} else {
-				response = utils.JsonResponse{Token: signedToken}
-			}
-		}
+		logrus.Error(fmt.Sprintf("failed to retrieve list of users: " + err.Error()))
+		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg)
+		return
 	}
 
-	if response.Error != nil {
-		utils.WriteJSONResponse(w, response.Error.Code, response)
-	} else {
-		logrus.Info(fmt.Sprintf("Completed login for user '%s'", user.Name))
-		utils.WriteJSONResponse(w, http.StatusOK, response)
+	err = h.repo.CheckPassword(storedUser, user.Password)
+	if err != nil {
+		logrus.Error(fmt.Sprintf("Failed to authenticate user %s: password check failed: %s", user.Name, err.Error()))
+		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Invalid user credentials.")
+		return
 	}
+
+	jwt := jwtutils.GetSecretAuthToken()
+	jwt.ExpirationHours = 24 // can I put this in GetRealAuthToken? test
+
+	signedToken, err := h.jwtRepo.GenerateToken(&jwt, storedUser)
+	if err != nil {
+		logrus.Error(fmt.Sprintf("Failed to generate token: %s", err.Error()))
+		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg)
+		return
+	}
+	logrus.Info(fmt.Sprintf("Authentication successful for user '%s'", user.Name))
+	response := utils.JsonResponse{Token: signedToken}
+	utils.WriteJSONResponse(w, http.StatusOK, response)
 }
 
 // IsAuthorized checks the authorization header of the given HTTP request to see if a valid JSON Web Token is included.
@@ -183,8 +318,7 @@ func (h *User) Login(w http.ResponseWriter, r *http.Request) {
 // On success, moves on to the next http handler in the calling chain.
 func (h *User) IsAuthorized(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// don't look for authorization from OPTIONS requests
-		if r.Method == http.MethodOptions {
+		if r.Method == http.MethodOptions { // don't look for authorization from OPTIONS requests
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -196,21 +330,17 @@ func (h *User) IsAuthorized(next http.HandlerFunc) http.HandlerFunc {
 			http.Error(w, "Authorization failed.", http.StatusForbidden)
 			return
 		}
-		token := strings.Split(auth, "Bearer ")
-		if len(token) == 2 {
-			auth = strings.TrimSpace(token[1])
-		} else {
-			logrus.Error("Incorrect format of authorization token")
+
+		authToken, err := jwtutils.GetTokenFromAuthHeader(auth)
+		if err != nil {
+			logrus.Error(err.Error())
 			http.Error(w, "Authorization failed.", http.StatusBadRequest)
 			return
 		}
 
-		authReal := models.JwtWrapper{
-			SecretKey: SECRET_KEY,
-			Issuer:    ISSUER,
-		}
+		authReal := jwtutils.GetSecretAuthToken()
 
-		_, err := h.jwtRepo.ValidateToken(&authReal, auth)
+		_, err = h.jwtRepo.ValidateToken(&authReal, authToken)
 		if err != nil {
 			logrus.Error("Authorization failed: SecretKey and/or Issuer wrong")
 			http.Error(w, "Authorization failed.", http.StatusUnauthorized)
@@ -230,7 +360,6 @@ func (h *User) HasRole(next http.HandlerFunc, role string) http.HandlerFunc {
 			return
 		}
 
-		logrus.Info("Starting role authorization check...")
 		auth := r.Header.Get("Authorization")
 		if auth == "" {
 			logrus.Error("No authorization header provided")
@@ -246,10 +375,7 @@ func (h *User) HasRole(next http.HandlerFunc, role string) http.HandlerFunc {
 			return
 		}
 
-		authReal := models.JwtWrapper{
-			SecretKey: SECRET_KEY,
-			Issuer:    ISSUER,
-		}
+		authReal := jwtutils.GetSecretAuthToken()
 
 		userRole, err := h.jwtRepo.GetRole(&authReal, auth)
 		if err != nil {
@@ -258,31 +384,19 @@ func (h *User) HasRole(next http.HandlerFunc, role string) http.HandlerFunc {
 				if hasRole {
 					next.ServeHTTP(w, r)
 				} else {
-					logrus.Error("User's role does meet the access level requirements: expecting '" + role + "' got '" + userRole + "'")
+					logrus.Error(fmt.Sprintf("User's role does meet the access level requirements: expecting '%s' got '%s'", role, userRole))
 					http.Error(w, "Authorization failed.", http.StatusUnauthorized)
 					return
 				}
 			} else {
-				logrus.Error("Unexpected error checking user's role: " + err.Error())
-				http.Error(w, "Internal server error", http.StatusInternalServerError)
+				logrus.Error(fmt.Sprintf("Unexpected error checking user's role: %s", err.Error()))
+				http.Error(w, internalServerErrMsg, http.StatusInternalServerError)
 				return
 			}
 		} else {
-			logrus.Error("Unexpected error parsing user's role from JWT: " + err.Error())
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			logrus.Error(fmt.Sprintf("Unexpected error parsing user's role from JWT: %s", err.Error()))
+			http.Error(w, internalServerErrMsg, http.StatusInternalServerError)
 			return
 		}
 	})
 }
-
-// Edit existing user
-// update username, password, role
-// a user can update their own username + password
-// only admins can change a user's role
-// cannot remove admin role from themselves
-
-// Delete existing user
-// admins only
-
-// Read existing user list
-// Or info about one user by id

@@ -184,6 +184,8 @@ func (h *Order) getOrdersPage(w http.ResponseWriter, r *http.Request) {
 				pruned = append(pruned, order)
 			}
 		}
+	default:
+		pruned = orders
 	}
 	orders = pruned
 

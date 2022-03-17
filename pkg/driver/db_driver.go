@@ -6,6 +6,6 @@ import "gorm.io/gorm"
 // DB holds the connections to different possible types of databases.
 type DB struct {
 	Postgres *gorm.DB
-	// mongo *mgo.database
+	// Mongo *mgo.database
 	// etc
 }

@@ -1,4 +1,3 @@
-// Package postgres provides an interface to connect to/set up a postgres database for use with the fruitbar application.
 package postgres
 
 import (
@@ -13,7 +12,7 @@ import (
 	"moul.io/zapgorm2"
 )
 
-// OpenConnection attempts to open a connection to a postgres database using gorm.
+// OpenConnection attempts to open a connection to a postgres database using gorm and returns a driver with a valid postgres connection.
 func OpenConnection(connectionConfig *PostgresConnectionConfig) (*driver.DB, error) {
 	zaplogger := zapgorm2.New(zap.L())
 	dbinfo := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable",
@@ -41,7 +40,7 @@ func SetupTables(db *driver.DB, object interface{}, init bool) error {
 		return errors.New(msg)
 	}
 	tableName := stmt.Schema.Table
-	if !db.Postgres.Migrator().HasTable(object) { // Note: This will also pick up on if the schema in the DB does not match the data model in go.
+	if !db.Postgres.Migrator().HasTable(object) { // This will also pick up on if the schema in the DB does not match gorm's data model (based on the code)
 		logrus.Info("Table not found: " + tableName)
 		if init {
 			// If the table exists, but not for the parsed object, this means the schema has changed, so drop the table.

@@ -15,16 +15,20 @@ type PostgresConnectionConfig struct {
 	Password string
 }
 
-// Names of environment variables used to configure the database connection
 const (
+	// Name of environment variable containing the database hostname.
 	databaseHostnameEnv = "FRUITBAR_DB_HOSTNAME"
-	databasePortEnv     = "FRUITBAR_DB_PORT"
-	databaseDBNameEnv   = "FRUITBAR_DB_DATABASE"
+	// Name of environment variable containing the database connection port.
+	databasePortEnv = "FRUITBAR_DB_PORT"
+	// Name of environment variable containing the database database name.
+	databaseDBNameEnv = "FRUITBAR_DB_DATABASE"
+	// Name of environment variable containing the database user to use for transactions.
 	databaseUsernameEnv = "FRUITBAR_DB_USER"
+	// Name of environment variable containing the password for the database user.
 	databasePasswordEnv = "FRUITBAR_DB_PASSWORD"
 )
 
-// NewPostgresConnectionConfigFromEnv creates a new connection configuration based on environment variables.
+// NewPostgresConnectionConfigFromEnv returns a new connection configuration based on the values of environment variables.
 func NewPostgresConnectionConfigFromEnv() (*PostgresConnectionConfig, error) {
 	host, err := utils.GetEnv(databaseHostnameEnv)
 	if err != nil {

@@ -2,6 +2,7 @@ package models
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"unicode"
@@ -96,26 +97,26 @@ func ValidatePassword(pass string) (bool, error) {
 // TODO: Rename this to HasAccessLevel ??
 // TODO: make this a function for the *User object only
 func HasRole(userRole string, role string) (bool, error) {
-	if role == GetAdminRoleId() {
+	switch role {
+	case GetAdminRoleId():
 		if userRole == GetAdminRoleId() {
 			return true, nil
-		} else {
-			return false, nil
 		}
-	} else if role == GetEmployeeRoleId() {
-		if userRole == GetAdminRoleId() || userRole == GetEmployeeRoleId() {
+		return false, nil
+	case GetEmployeeRoleId():
+		switch userRole {
+		case GetAdminRoleId():
 			return true, nil
-		} else {
-			return false, nil
-		}
-	} else if role == GetCustomerRoleId() {
-		if userRole == GetAdminRoleId() || userRole == GetEmployeeRoleId() || userRole == GetCustomerRoleId() {
+		case GetEmployeeRoleId():
 			return true, nil
-		} else {
+		default:
 			return false, nil
 		}
-	} else {
-		return false, errors.New("the role you are comparing against is invalid, role must be one of the following: " + strings.Join(getValidRoles(), ", "))
+	case GetCustomerRoleId():
+		return true, nil
+	default:
+		msg := fmt.Sprintf("the role you are comparing against is invalid, role must be one of the following: %s", strings.Join(getValidRoles(), ", "))
+		return false, errors.New(msg)
 	}
 }
 

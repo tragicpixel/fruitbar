@@ -75,16 +75,16 @@ func (s *ProductsService) getHealthCheckAPICORSOptions() utils.CORSOptions {
 }
 
 func (s *ProductsService) getCreateAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.UserHandler.IsAuthorized(utils.SendCORSPreflightHeaders(s.getCreateAPICORSOptions(), s.Handler.CreateProduct))
+	return s.UserHandler.IsAuthorized(s.UserHandler.HasRole(utils.SendCORSPreflightHeaders(s.getCreateAPICORSOptions(), s.Handler.CreateProduct), models.GetAdminRoleId()))
 }
 func (s *ProductsService) getReadAPIHandler() func(http.ResponseWriter, *http.Request) {
 	return s.UserHandler.IsAuthorized(utils.SendCORSPreflightHeaders(s.getReadAPICORSOptions(), s.Handler.GetProducts))
 }
 func (s *ProductsService) getUpdateAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.UserHandler.IsAuthorized(utils.SendCORSPreflightHeaders(s.getUpdateAPICORSOptions(), s.Handler.UpdateProduct))
+	return s.UserHandler.IsAuthorized(s.UserHandler.HasRole(utils.SendCORSPreflightHeaders(s.getUpdateAPICORSOptions(), s.Handler.UpdateProduct), models.GetAdminRoleId()))
 }
 func (s *ProductsService) getDeleteAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.UserHandler.IsAuthorized(utils.SendCORSPreflightHeaders(s.getDeleteAPICORSOptions(), s.Handler.DeleteProduct))
+	return s.UserHandler.IsAuthorized(s.UserHandler.HasRole(utils.SendCORSPreflightHeaders(s.getDeleteAPICORSOptions(), s.Handler.DeleteProduct), models.GetAdminRoleId()))
 }
 func (s *ProductsService) getHealthCheckAPIHandler() func(http.ResponseWriter, *http.Request) {
 	return utils.SendCORSPreflightHeaders(s.getHealthCheckAPICORSOptions(), s.CheckHealth)

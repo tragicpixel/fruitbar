@@ -8,9 +8,11 @@ import (
 	"github.com/tragicpixel/fruitbar/pkg/models"
 	"github.com/tragicpixel/fruitbar/pkg/repository"
 	itemsrepo "github.com/tragicpixel/fruitbar/pkg/repository/item"
+	jwtrepo "github.com/tragicpixel/fruitbar/pkg/repository/jwt"
 	orderrepo "github.com/tragicpixel/fruitbar/pkg/repository/order"
 	productsrepo "github.com/tragicpixel/fruitbar/pkg/repository/product"
 	"github.com/tragicpixel/fruitbar/pkg/utils"
+	jwtutils "github.com/tragicpixel/fruitbar/pkg/utils/jwt"
 
 	"fmt"
 	"net/http"
@@ -24,6 +26,7 @@ type Order struct {
 	repo         repository.Order
 	productsRepo repository.Product
 	itemsRepo    repository.Item
+	jwtRepo      repository.Jwt
 }
 
 // NewOrderHandler creates a new http handler for performing operations on a repository of orders.
@@ -32,12 +35,16 @@ func NewOrderHandler(db *driver.DB) *Order {
 		repo:         orderrepo.NewPostgresOrderRepo(db.Postgres),
 		productsRepo: productsrepo.NewPostgresProductRepo(db.Postgres),
 		itemsRepo:    itemsrepo.NewPostgresItemRepo(db.Postgres),
+		jwtRepo:      jwtrepo.NewJWTRepository(),
 	}
 }
 
 const (
-	validationFailedMsg  = "validation failed: "
-	internalServerErrMsg = "Internal server error. Please contact your system administrator."
+	validationFailedMsg        = "validation failed: "
+	internalServerErrMsg       = "Internal server error. Please contact your system administrator."
+	forbiddenReadOrderErrMsg   = forbiddenErrMsg + "read this Order."
+	forbiddenUpdateOrderErrMsg = forbiddenErrMsg + "update this Order."
+	forbiddenDeleteOrderErrMsg = forbiddenErrMsg + "delete this Order."
 
 	idParam     = "id"
 	fieldsParam = "fields"
@@ -108,57 +115,94 @@ func (h *Order) CreateOrder(w http.ResponseWriter, r *http.Request) {
 // GetOrders retrieves an existing order in the repo based on the supplied ID query parameter and returns a response in JSON containing either the order encoded in JSON or an error message.
 func (h *Order) GetOrders(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Has(idParam) {
-		// Read a single order
-		id, err := utils.GetQueryParamAsUint(r, idParam)
-		if err != nil {
-			utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		logrus.Info(fmt.Sprintf("Reading order with id %d...", id))
-		var order *models.Order
-		order, err = h.repo.GetByID(id)
-		if err != nil {
-			logMsg := fmt.Sprintf("Error reading order (id: %d) %s", id, err.Error())
-			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
-			return
-		}
-		logrus.Info(fmt.Sprintf("Successfully retrieved order with id = %d", id))
-		response := utils.JsonResponse{Data: []*models.Order{order}}
-		utils.WriteJSONResponse(w, http.StatusOK, response)
-		return
+		h.getSingleOrder(w, r)
 	} else {
-		// Read a page of orders
-		var seek *utils.PageSeekOptions
-		seek, err := utils.GetPageSeekOptions(r, readPageMaxLimit)
-		if err != nil {
-			utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		logrus.Info(fmt.Sprintf("Reading %d orders (max %d)...", seek.RecordLimit, readPageMaxLimit))
-		var orders []*models.Order
-		orders, err = h.repo.Fetch(seek)
-		if err != nil {
-			logMsg := fmt.Sprintf("Error reading orders: %s", err.Error())
-			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
-			return
-		}
-		count, err := h.repo.Count(seek)
-		if err != nil {
-			logMsg := fmt.Sprintf("Error counting orders: %s", err.Error())
-			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
-			return
-		}
-		startID, endID := uint(0), uint(0)
-		if len(orders) > 0 {
-			startID = orders[0].ID
-			endID = orders[len(orders)-1].ID
-		}
-		rangeStr := fmt.Sprintf("orders%d-%d/%d", startID, endID, count)
-		w.Header().Set("Content-Range", rangeStr)
-		logrus.Info(fmt.Sprintf("Read %d orders", len(orders)))
-		response := utils.JsonResponse{Data: orders}
-		utils.WriteJSONResponse(w, http.StatusOK, response)
+		h.getOrdersPage(w, r)
 	}
+}
+
+func (h *Order) getSingleOrder(w http.ResponseWriter, r *http.Request) {
+	id, err := utils.GetQueryParamAsUint(r, idParam)
+	if err != nil {
+		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	logrus.Info(fmt.Sprintf("Reading order with id %d...", id))
+	var order *models.Order
+	order, err = h.repo.GetByID(id)
+	if err != nil {
+		logMsg := fmt.Sprintf("Error reading order (id: %d) %s", id, err.Error())
+		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		return
+	}
+	logrus.Info(fmt.Sprintf("Successfully retrieved order with id = %d", id))
+
+	requestor, err := jwtutils.GetTokenClaims(r, h.jwtRepo)
+	if err != nil {
+		logMsg := "Authorization failed: " + err.Error()
+		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Authorization Failed", logMsg)
+		return
+	}
+	// Customers can only read orders with their own IDs
+	if requestor.UserRole == models.GetCustomerRoleId() && order.OwnerID != requestor.UserID {
+		http.Error(w, forbiddenReadOrderErrMsg, http.StatusForbidden)
+		return
+	}
+
+	response := utils.JsonResponse{Data: []*models.Order{order}}
+	utils.WriteJSONResponse(w, http.StatusOK, response)
+}
+
+func (h *Order) getOrdersPage(w http.ResponseWriter, r *http.Request) {
+	var seek *utils.PageSeekOptions
+	seek, err := utils.GetPageSeekOptions(r, readPageMaxLimit)
+	if err != nil {
+		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	logrus.Info(fmt.Sprintf("Reading %d orders (max %d)...", seek.RecordLimit, readPageMaxLimit))
+	var orders []*models.Order
+	orders, err = h.repo.Fetch(seek)
+	if err != nil {
+		logMsg := fmt.Sprintf("Error reading orders: %s", err.Error())
+		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		return
+	}
+
+	requestor, err := jwtutils.GetTokenClaims(r, h.jwtRepo)
+	if err != nil {
+		logMsg := "Authorization failed: " + err.Error()
+		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Authorization Failed", logMsg)
+		return
+	}
+	var pruned []*models.Order
+	switch requestor.UserRole {
+	case models.GetCustomerRoleId():
+		// Customers can only read: orders owned by their user ID
+		for _, order := range orders {
+			if order.OwnerID == requestor.UserID {
+				pruned = append(pruned, order)
+			}
+		}
+	}
+	orders = pruned
+
+	count, err := h.repo.Count(seek)
+	if err != nil {
+		logMsg := fmt.Sprintf("Error counting orders: %s", err.Error())
+		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		return
+	}
+	startID, endID := uint(0), uint(0)
+	if len(orders) > 0 {
+		startID = orders[0].ID
+		endID = orders[len(orders)-1].ID
+	}
+	rangeStr := fmt.Sprintf("orders%d-%d/%d", startID, endID, count)
+	w.Header().Set("Content-Range", rangeStr)
+	logrus.Info(fmt.Sprintf("Read %d orders", len(orders)))
+	response := utils.JsonResponse{Data: orders}
+	utils.WriteJSONResponse(w, http.StatusOK, response)
 }
 
 // UpdateOrder updates an existing order in the repo based on the supplied JSON request, and returns a status message in JSON to the user.
@@ -177,109 +221,131 @@ func (h *Order) UpdateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	requestor, err := jwtutils.GetTokenClaims(r, h.jwtRepo)
+	if err != nil {
+		logMsg := "Authorization failed: " + err.Error()
+		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Authorization Failed", logMsg)
+		return
+	}
+	// Customers can only update their own orders
+	if requestor.UserRole == models.GetCustomerRoleId() && order.OwnerID != requestor.UserID {
+		utils.WriteJSONErrorResponse(w, http.StatusForbidden, forbiddenUpdateOrderErrMsg)
+		return
+	}
+
 	if r.URL.Query().Has(fieldsParam) {
-		// Partially update order
-		fieldsStr := r.URL.Query().Get(fieldsParam)
-		fields := strings.Split(fieldsStr, ",")
+		h.partiallyUpdateOrder(w, r, order)
+	} else {
+		h.fullyUpdateOrder(w, r, order)
+	}
+}
 
-		_, err := models.ValidateOrderUpdate(&order, fields)
-		if err != nil {
-			utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Order "+validationFailedMsg+err.Error())
-			return
-		}
+// partiallyUpdateOrder updates only the specified fields (via http query parameter) of the supplied order.
+// Sends a response in json to the supplied http ResponseWriter.
+func (h *Order) partiallyUpdateOrder(w http.ResponseWriter, r *http.Request, order models.Order) {
+	fieldsStr := r.URL.Query().Get(fieldsParam)
+	fields := strings.Split(fieldsStr, ",")
 
-		logrus.Info(fmt.Sprintf("Updating order (id: %d) fields (%s) to %+v", order.ID, fieldsStr, order))
-		updated, err := h.repo.Update(&order, fields)
-		if err != nil {
-			logMsg := fmt.Sprintf("Error partially updating order (id: %d) fields (%s) to %+v: %s", order.ID, fieldsStr, order, err.Error())
-			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
-			return
-		}
-		logrus.Info(fmt.Sprintf("Partially updated order (id: %d) fields (%s): %+v", order.ID, fieldsStr, updated))
-		currentItems, err := h.itemsRepo.GetByOrderID(order.ID)
-		if err != nil {
-			logMsg := fmt.Sprintf("Failed to retrieve existing items: %s", err.Error())
-			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
-			return
-		}
-		for _, item := range order.Items {
-			match := false
-			for _, existingItem := range currentItems {
-				if item.ProductID == existingItem.ProductID {
-					match = true
-					item.ID = existingItem.ID
-					logrus.Info(fmt.Sprintf("Updating item (id: %d) to %+v", item.ID, item))
-					_, err := h.itemsRepo.Update(&item, []string{})
-					if err != nil {
-						logMsg := fmt.Sprintf("Error updating item (id: %d): %s", item.ID, err.Error())
-						utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
-						return
-					}
-					break // assumption: only one item exists with the given product id
-				}
-			}
-			if !match {
-				logrus.Info(fmt.Sprintf("Creating new item: %+v", item))
-				item.OrderID = order.ID
-				id, err := h.itemsRepo.Create(&item)
+	_, err := models.ValidateOrderUpdate(&order, fields)
+	if err != nil {
+		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Order "+validationFailedMsg+err.Error())
+		return
+	}
+
+	logrus.Info(fmt.Sprintf("Updating order (id: %d) fields (%s) to %+v", order.ID, fieldsStr, order))
+	updated, err := h.repo.Update(&order, fields)
+	if err != nil {
+		logMsg := fmt.Sprintf("Error partially updating order (id: %d) fields (%s) to %+v: %s", order.ID, fieldsStr, order, err.Error())
+		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		return
+	}
+	logrus.Info(fmt.Sprintf("Partially updated order (id: %d) fields (%s): %+v", order.ID, fieldsStr, updated))
+	currentItems, err := h.itemsRepo.GetByOrderID(order.ID)
+	if err != nil {
+		logMsg := fmt.Sprintf("Failed to retrieve existing items: %s", err.Error())
+		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		return
+	}
+	for _, item := range order.Items {
+		match := false
+		for _, existingItem := range currentItems {
+			if item.ProductID == existingItem.ProductID {
+				match = true
+				item.ID = existingItem.ID
+				logrus.Info(fmt.Sprintf("Updating item (id: %d) to %+v", item.ID, item))
+				_, err := h.itemsRepo.Update(&item, []string{})
 				if err != nil {
-					logMsg := fmt.Sprintf("Error creating item: %s", err.Error())
+					logMsg := fmt.Sprintf("Error updating item (id: %d): %s", item.ID, err.Error())
 					utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 					return
 				}
-				item.ID = id
+				break // assumption: only one item exists with the given product id
 			}
 		}
-		logrus.Info(fmt.Sprintf("Partially updated order (id: %d) fields: %s", order.ID, fieldsStr))
-		response = utils.JsonResponse{Data: []*models.Order{&order}, Id: strconv.Itoa(int(order.ID))}
-		utils.WriteJSONResponse(w, http.StatusOK, response)
-		return
-	} else {
-		// Full update of order
-		_, err := models.ValidateOrder(&order)
-		if err != nil {
-			utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Order "+validationFailedMsg+err.Error())
-			return
-		}
-
-		logrus.Info(fmt.Sprintf("Updating order (id: %d) to %+v", order.ID, order))
-		updated, err := h.repo.Update(&order, []string{})
-		if err != nil {
-			logMsg := fmt.Sprintf("Error updating order (id: %d): %s", order.ID, err.Error())
-			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
-			return
-		}
-		logrus.Info(fmt.Sprintf("Updated order (id: %d) to %+v", order.ID, updated))
-
-		currentItems, err := h.itemsRepo.GetByOrderID(order.ID)
-		if err != nil {
-			logMsg := fmt.Sprintf("Failed to retrieve existing items: %s", err.Error())
-			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
-			return
-		}
-		for _, item := range currentItems {
-			logrus.Info(fmt.Sprintf("Deleting existing item (id: %d) from order (id: %d)...", item.ID, order.ID))
-			err := h.itemsRepo.Delete(item.ID)
-			if err != nil {
-				logMsg := fmt.Sprintf("Error deleting existing item: %s", err.Error())
-				utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
-				return
-			}
-		}
-		for _, item := range order.Items {
-			logrus.Info(fmt.Sprintf("Creating new item for order (id: %d)...", order.ID))
+		if !match {
+			logrus.Info(fmt.Sprintf("Creating new item: %+v", item))
+			item.OrderID = order.ID
 			id, err := h.itemsRepo.Create(&item)
 			if err != nil {
-				logMsg := fmt.Sprintf("couldn't create an item for a full order update: %s", err.Error())
+				logMsg := fmt.Sprintf("Error creating item: %s", err.Error())
 				utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 				return
 			}
 			item.ID = id
 		}
-		logrus.Info(fmt.Sprintf("Fully updated order (id: %d)", order.ID))
-		response = utils.JsonResponse{Data: []*models.Order{&order}}
-		utils.WriteJSONResponse(w, http.StatusOK, response)
 	}
+	logrus.Info(fmt.Sprintf("Partially updated order (id: %d) fields: %s", order.ID, fieldsStr))
+	response := utils.JsonResponse{Data: []*models.Order{&order}, Id: strconv.Itoa(int(order.ID))}
+	utils.WriteJSONResponse(w, http.StatusOK, response)
+	return
+}
+
+// fullyUpdateOrder updates all of the fields of the supplied order.
+// Sends a response in json to the supplied http ResponseWriter.
+func (h *Order) fullyUpdateOrder(w http.ResponseWriter, r *http.Request, order models.Order) {
+	_, err := models.ValidateOrder(&order)
+	if err != nil {
+		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Order "+validationFailedMsg+err.Error())
+		return
+	}
+
+	logrus.Info(fmt.Sprintf("Updating order (id: %d) to %+v", order.ID, order))
+	updated, err := h.repo.Update(&order, []string{})
+	if err != nil {
+		logMsg := fmt.Sprintf("Error updating order (id: %d): %s", order.ID, err.Error())
+		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		return
+	}
+	logrus.Info(fmt.Sprintf("Updated order (id: %d) to %+v", order.ID, updated))
+
+	currentItems, err := h.itemsRepo.GetByOrderID(order.ID)
+	if err != nil {
+		logMsg := fmt.Sprintf("Failed to retrieve existing items: %s", err.Error())
+		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		return
+	}
+	for _, item := range currentItems {
+		logrus.Info(fmt.Sprintf("Deleting existing item (id: %d) from order (id: %d)...", item.ID, order.ID))
+		err := h.itemsRepo.Delete(item.ID)
+		if err != nil {
+			logMsg := fmt.Sprintf("Error deleting existing item: %s", err.Error())
+			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+			return
+		}
+	}
+	for _, item := range order.Items {
+		logrus.Info(fmt.Sprintf("Creating new item for order (id: %d)...", order.ID))
+		id, err := h.itemsRepo.Create(&item)
+		if err != nil {
+			logMsg := fmt.Sprintf("couldn't create an item for a full order update: %s", err.Error())
+			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+			return
+		}
+		item.ID = id
+	}
+	logrus.Info(fmt.Sprintf("Fully updated order (id: %d)", order.ID))
+	response := utils.JsonResponse{Data: []*models.Order{&order}}
+	utils.WriteJSONResponse(w, http.StatusOK, response)
 }
 
 // DeleteOrder deletes an existing order from the repo based on the supplied http request and writes a response over http.
@@ -287,6 +353,24 @@ func (h *Order) DeleteOrder(w http.ResponseWriter, r *http.Request) {
 	id, err := utils.GetQueryParamAsUint(r, idParam)
 	if err != nil {
 		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	order, err := h.repo.GetByID(id)
+	if err != nil {
+		logMsg := fmt.Sprintf("Error reading order for proposed deletion...")
+		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		return
+	}
+	requestor, err := jwtutils.GetTokenClaims(r, h.jwtRepo)
+	if err != nil {
+		logMsg := "Authorization failed: " + err.Error()
+		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Authorization Failed", logMsg)
+		return
+	}
+	// Customers can only delete their own orders
+	if requestor.UserRole == models.GetCustomerRoleId() && order.OwnerID != requestor.UserID {
+		utils.WriteJSONErrorResponse(w, http.StatusForbidden, forbiddenDeleteOrderErrMsg)
 		return
 	}
 

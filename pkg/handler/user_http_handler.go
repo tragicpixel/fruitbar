@@ -21,7 +21,12 @@ import (
 
 // TODO: How to properly store these???
 const (
-	UI_URL = "http://localhost:3000"
+	UI_URL                    = "http://localhost:3000"
+	forbiddenErrMsg           = "Forbidden: Not enough privileges to "
+	forbiddenCreateUserErrMsg = forbiddenErrMsg + "create Users with the 'employee' or 'admin' roles."
+	forbiddenReadUserErrMsg   = forbiddenErrMsg + "read this User."
+	forbiddenUpdateUserErrMsg = forbiddenErrMsg + "update this User."
+	forbiddenDeleteUserErrMsg = forbiddenErrMsg + "delete this User."
 )
 
 // User represents an http handler for performing operations on a repository of user accounts.
@@ -55,16 +60,14 @@ func (h *User) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenClaims, err := jwtutils.GetTokenClaims(r, h.jwtRepo)
+	requestor, err := jwtutils.GetTokenClaims(r, h.jwtRepo)
 	if err != nil {
 		logMsg := "Authorization failed: " + err.Error()
 		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Authorization Failed", logMsg)
 		return
 	}
-	if user.Role != models.GetCustomerRoleId() && tokenClaims.UserRole != models.GetAdminRoleId() {
-		logrus.Error(fmt.Sprintf("user role: %s, token claims: %v+", user.Role, tokenClaims))
-		logrus.Error("Authorization failed: Must be an admin level user to create employees or admin level users")
-		http.Error(w, "Authorization failed.", http.StatusUnauthorized)
+	if user.Role != models.GetCustomerRoleId() && requestor.UserRole != models.GetAdminRoleId() {
+		http.Error(w, forbiddenCreateUserErrMsg, http.StatusForbidden)
 		return
 	}
 
@@ -103,59 +106,128 @@ func (h *User) CreateUser(w http.ResponseWriter, r *http.Request) {
 // The list of products can also be paginated, using the "limit" and "after_id" query parameters.
 // Returns a response in JSON containing either an array of users encoded in JSON or an error message.
 func (h *User) GetUsers(w http.ResponseWriter, r *http.Request) {
-	var response = utils.JsonResponse{}
 	if r.URL.Query().Has(idParam) {
-		// Read a single user
-		id, err := utils.GetQueryParamAsUint(r, idParam)
-		if err != nil {
-			utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		logrus.Info(fmt.Sprintf("Reading user (id: %d)...", id))
-		var user *models.User
-		user, err = h.repo.GetByID(id)
-		if err != nil {
-			logMsg := fmt.Sprintf("Error reading user (id: %d): %s", id, err.Error())
-			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
-			return
-		}
-		logrus.Info(fmt.Sprintf("Read user (id: %d)", id))
-		response = utils.JsonResponse{Data: []*models.User{user}}
-		utils.WriteJSONResponse(w, http.StatusOK, response)
+		h.getSingleUser(w, r)
 	} else {
-		// Read a page of users
-		var seek *utils.PageSeekOptions
-		seek, err := utils.GetPageSeekOptions(r, readPageMaxLimit)
-		if response.Error != nil {
-			utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
-			return
-		}
-
-		logrus.Info(fmt.Sprintf("Reading %d users (max %d)...", seek.RecordLimit, readPageMaxLimit))
-		var users []*models.User
-		users, err = h.repo.Fetch(seek)
-		if err != nil {
-			logMsg := fmt.Sprintf("Error reading users: %s", err.Error())
-			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
-			return
-		}
-		count, err := h.repo.Count(seek)
-		if err != nil {
-			logMsg := fmt.Sprintf("Error counting users: %s", err.Error())
-			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
-			return
-		}
-		startID, endID := uint(0), uint(0)
-		if len(users) > 0 {
-			startID = users[0].ID
-			endID = users[len(users)-1].ID
-		}
-		rangeStr := fmt.Sprintf("users=%d-%d/%d", startID, endID, count)
-		w.Header().Set("Content-Range", rangeStr)
-		logrus.Info(fmt.Sprintf("Read %d users", len(users)))
-		response = utils.JsonResponse{Data: users}
-		utils.WriteJSONResponse(w, http.StatusOK, response)
+		h.getUsersPage(w, r)
 	}
+}
+
+// getSingleUser retrieves a single user from the user repository based on the supplied id via http query parameter.
+// Sends a response in json to the supplied http ResponseWriter.
+func (h *User) getSingleUser(w http.ResponseWriter, r *http.Request) {
+	id, err := utils.GetQueryParamAsUint(r, idParam)
+	if err != nil {
+		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	logrus.Info(fmt.Sprintf("Reading user (id: %d)...", id))
+	var user *models.User
+	requestor, err := jwtutils.GetTokenClaims(r, h.jwtRepo)
+	if err != nil {
+		logMsg := "Authorization failed: " + err.Error()
+		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Authorization Failed", logMsg)
+		return
+	}
+	_, err = models.ValidateRole(requestor.UserRole)
+	if err != nil {
+		logMsg := "Authorization failed: " + err.Error()
+		utils.WriteJSONErrorResponse(w, http.StatusUnauthorized, "Authorization Failed", logMsg)
+		return
+	}
+
+	// Customers can only read their own user account
+	if requestor.UserRole == models.GetCustomerRoleId() && requestor.UserID != id {
+		utils.WriteJSONErrorResponse(w, http.StatusForbidden, forbiddenReadUserErrMsg)
+		return
+	}
+
+	user, err = h.repo.GetByID(id)
+	if err != nil {
+		logMsg := fmt.Sprintf("Error reading user (id: %d): %s", id, err.Error())
+		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		return
+	}
+	logrus.Info(fmt.Sprintf("Read user (id: %d)", id))
+	user.Password = "" // Remove password hash for security reasons
+
+	// Employees can read any customer user account and their own user account
+	if requestor.UserRole == models.GetEmployeeRoleId() && (user.Role != models.GetCustomerRoleId() && requestor.UserID != id) {
+		utils.WriteJSONErrorResponse(w, http.StatusForbidden, forbiddenReadUserErrMsg)
+		return
+	}
+
+	response := utils.JsonResponse{Data: []*models.User{user}}
+	utils.WriteJSONResponse(w, http.StatusOK, response)
+}
+
+// getUsersPage retrieves a single user from the user repository based on the supplied seek options via http query parameter.
+// Sends a response in json to the supplied http ResponseWriter.
+func (h *User) getUsersPage(w http.ResponseWriter, r *http.Request) {
+	var seek *utils.PageSeekOptions
+	seek, err := utils.GetPageSeekOptions(r, readPageMaxLimit)
+	if err != nil {
+		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	logrus.Info(fmt.Sprintf("Reading %d users (max %d)...", seek.RecordLimit, readPageMaxLimit))
+	var users []*models.User
+	users, err = h.repo.Fetch(seek)
+	if err != nil {
+		logMsg := fmt.Sprintf("Error reading users: %s", err.Error())
+		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		return
+	}
+	for _, user := range users {
+		user.Password = "" // Remove password hash for security reasons
+	}
+
+	requestor, err := jwtutils.GetTokenClaims(r, h.jwtRepo)
+	if err != nil {
+		logMsg := "Authorization failed: " + err.Error()
+		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Authorization Failed", logMsg)
+		return
+	}
+	var pruned []*models.User
+	switch requestor.UserRole {
+	case models.GetAdminRoleId():
+		// Admin can read all users
+		pruned = users
+	case models.GetEmployeeRoleId():
+		// Employees can only read: other customer users, and their user
+		for _, user := range users {
+			if user.ID == requestor.UserID || user.Role == models.GetCustomerRoleId() {
+				pruned = append(pruned, user)
+			}
+		}
+	case models.GetCustomerRoleId():
+		// Customers can only read: their user
+		for _, user := range users {
+			if user.ID == requestor.UserID {
+				pruned = append(pruned, user)
+			}
+		}
+	}
+	users = pruned
+
+	count, err := h.repo.Count(seek)
+	if err != nil {
+		logMsg := fmt.Sprintf("Error counting users: %s", err.Error())
+		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		return
+	}
+	startID, endID := uint(0), uint(0)
+	if len(users) > 0 {
+		startID = users[0].ID
+		endID = users[len(users)-1].ID
+	}
+	rangeStr := fmt.Sprintf("users=%d-%d/%d", startID, endID, count)
+	w.Header().Set("Content-Range", rangeStr)
+	logrus.Info(fmt.Sprintf("Read %d users", len(users)))
+	response := utils.JsonResponse{Data: users}
+	utils.WriteJSONResponse(w, http.StatusOK, response)
 }
 
 // UpdateProduct updates an existing product in the repo based on the supplied JSON request, and returns a status message in JSON to the user.
@@ -169,64 +241,90 @@ func (h *User) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.URL.Query().Has(fieldsParam) {
-		// Partially update user
-		fieldsStr := r.URL.Query().Get(fieldsParam)
-		fields := strings.Split(fieldsStr, ",")
-
-		_, err := models.ValidatePartialUserUpdate(&user, fields)
-		if err != nil {
-			utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "User "+validationFailedMsg+err.Error())
-			return
-		}
-
-		if stringutils.IsStringInSlice("password", fields) {
-			logrus.Info(fmt.Sprintf("Password changed for user %s: Hashing password...", user.Name))
-			err = h.repo.HashPassword(&user, user.Password)
-			if err != nil {
-				logMsg := fmt.Sprintf("Failed to hash password: %s", err.Error())
-				utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
-				return
-			}
-		}
-
-		logrus.Info(fmt.Sprintf("Updating User (id: %d) fields (%s) to %+v", user.ID, fieldsStr, user))
-		updated, err := h.repo.Update(&user, fields)
-		if err != nil {
-			logMsg := fmt.Sprintf("Error partially updating User (id: %d)  fields (%s) : %s", user.ID, fieldsStr, err.Error())
-			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
-			return
-		}
-		logrus.Info(fmt.Sprintf("Partially updated User (id: %d) fields (%s): %+v", user.ID, fieldsStr, updated))
-		response = utils.JsonResponse{Data: []*models.User{&user}}
-		utils.WriteJSONResponse(w, http.StatusOK, response)
+	requestor, err := jwtutils.GetTokenClaims(r, h.jwtRepo)
+	if err != nil {
+		logMsg := "Authorization failed: " + err.Error()
+		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Authorization Failed", logMsg)
 		return
-	} else {
-		// Fully update user
-		_, err := models.ValidateUser(&user)
-		if err != nil {
-			utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "User "+validationFailedMsg+err.Error())
-			return
-		}
+	}
+	// Customers can only update their own user account
+	if requestor.UserRole == models.GetCustomerRoleId() && user.ID != requestor.UserID {
+		utils.WriteJSONErrorResponse(w, http.StatusForbidden, forbiddenUpdateUserErrMsg)
+		return
+	}
+	// Employees can only update customer accounts and their own user account
+	if requestor.UserRole == models.GetEmployeeRoleId() && (user.ID != requestor.UserID && user.Role != models.GetCustomerRoleId()) {
+		utils.WriteJSONErrorResponse(w, http.StatusForbidden, forbiddenUpdateUserErrMsg)
+		return
+	}
 
+	if r.URL.Query().Has(fieldsParam) {
+		h.partiallyUpdateUser(w, r, user)
+	} else {
+		h.fullyUpdateUser(w, r, user)
+	}
+}
+
+// partiallyUpdateUser updates only the specified fields (via http query parameter) of the supplied user.
+// Sends a response in json to the supplied http ResponseWriter.
+func (h *User) partiallyUpdateUser(w http.ResponseWriter, r *http.Request, user models.User) {
+	fieldsStr := r.URL.Query().Get(fieldsParam)
+	fields := strings.Split(fieldsStr, ",")
+
+	_, err := models.ValidatePartialUserUpdate(&user, fields)
+	if err != nil {
+		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "User "+validationFailedMsg+err.Error())
+		return
+	}
+
+	if stringutils.IsStringInSlice("password", fields) {
+		logrus.Info(fmt.Sprintf("Password changed for user %s: Hashing password...", user.Name))
 		err = h.repo.HashPassword(&user, user.Password)
 		if err != nil {
 			logMsg := fmt.Sprintf("Failed to hash password: %s", err.Error())
 			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 			return
 		}
-
-		logrus.Info(fmt.Sprintf("Updating User (id: %d) to %+v", user.ID, user))
-		updated, err := h.repo.Update(&user, []string{})
-		if err != nil {
-			logMsg := fmt.Sprintf("Error fully updating User with id = %d: %+v: %s", user.ID, user, err.Error())
-			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
-			return
-		}
-		logrus.Info(fmt.Sprintf("Fully updated User (id: %d): %+v", user.ID, updated))
-		response = utils.JsonResponse{Data: []*models.User{&user}}
-		utils.WriteJSONResponse(w, http.StatusOK, response)
 	}
+
+	logrus.Info(fmt.Sprintf("Updating User (id: %d) fields (%s) to %+v", user.ID, fieldsStr, user))
+	updated, err := h.repo.Update(&user, fields)
+	if err != nil {
+		logMsg := fmt.Sprintf("Error partially updating User (id: %d)  fields (%s) : %s", user.ID, fieldsStr, err.Error())
+		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		return
+	}
+	logrus.Info(fmt.Sprintf("Partially updated User (id: %d) fields (%s): %+v", user.ID, fieldsStr, updated))
+	response := utils.JsonResponse{Data: []*models.User{&user}}
+	utils.WriteJSONResponse(w, http.StatusOK, response)
+}
+
+// fullyUpdateUser updates all of the fields of the supplied user.
+// Sends a response in json to the supplied http ResponseWriter.
+func (h *User) fullyUpdateUser(w http.ResponseWriter, r *http.Request, user models.User) {
+	_, err := models.ValidateUser(&user)
+	if err != nil {
+		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "User "+validationFailedMsg+err.Error())
+		return
+	}
+
+	err = h.repo.HashPassword(&user, user.Password)
+	if err != nil {
+		logMsg := fmt.Sprintf("Failed to hash password: %s", err.Error())
+		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		return
+	}
+
+	logrus.Info(fmt.Sprintf("Updating User (id: %d) to %+v", user.ID, user))
+	updated, err := h.repo.Update(&user, []string{})
+	if err != nil {
+		logMsg := fmt.Sprintf("Error fully updating User with id = %d: %+v: %s", user.ID, user, err.Error())
+		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		return
+	}
+	logrus.Info(fmt.Sprintf("Fully updated User (id: %d): %+v", user.ID, updated))
+	response := utils.JsonResponse{Data: []*models.User{&user}}
+	utils.WriteJSONResponse(w, http.StatusOK, response)
 }
 
 // DeleteProduct deletes an existing user from the repo based on the supplied http request, and returns a status message in JSON to the user.
@@ -237,15 +335,35 @@ func (h *User) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenClaims, err := jwtutils.GetTokenClaims(r, h.jwtRepo)
+	requestor, err := jwtutils.GetTokenClaims(r, h.jwtRepo)
 	if err != nil {
 		logMsg := "Authorization failed: " + err.Error()
 		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Authorization Failed", logMsg)
 		return
 	}
-	if tokenClaims.UserID == id {
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "A user cannot delete themselves.")
+	// Prevent users from deleting themselves.
+	if requestor.UserID == id {
+		utils.WriteJSONErrorResponse(w, http.StatusForbidden, forbiddenDeleteUserErrMsg)
 		return
+	}
+	// Customers can only update their own user account
+	if requestor.UserRole == models.GetCustomerRoleId() && id != requestor.UserID {
+		utils.WriteJSONErrorResponse(w, http.StatusForbidden, forbiddenDeleteUserErrMsg)
+		return
+	}
+	// Employees can only update customer accounts and their own user account
+	if requestor.UserRole == models.GetEmployeeRoleId() && id != requestor.UserID {
+		logrus.Info("Reading User for proposed delete...")
+		user, err := h.repo.GetByID(id)
+		if err != nil {
+			logMsg := fmt.Sprintf("Error reading user (id: %d): %s", id, err.Error())
+			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+			return
+		}
+		if user.Role != models.GetCustomerRoleId() {
+			utils.WriteJSONErrorResponse(w, http.StatusForbidden, forbiddenDeleteUserErrMsg)
+			return
+		}
 	}
 
 	logrus.Info(fmt.Sprintf("Deleting User (id: %d)...", id))
@@ -257,7 +375,7 @@ func (h *User) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 	logrus.Info(fmt.Sprintf("Successfully deleted User with id = %d.", id))
 	response := utils.JsonResponse{}
-	utils.WriteJSONResponse(w, http.StatusNoContent, response)
+	utils.WriteJSONResponse(w, http.StatusOK, response) // could also just w.WriteHeader(http.StatusNoContent) and not send a response at all?
 }
 
 // GetPasswordFormatMessage always sends a response containing a message explaining the constraints applied when setting a new password.
@@ -360,43 +478,25 @@ func (h *User) HasRole(next http.HandlerFunc, role string) http.HandlerFunc {
 			return
 		}
 
-		auth := r.Header.Get("Authorization")
-		if auth == "" {
-			logrus.Error("No authorization header provided")
-			http.Error(w, "Authorization failed.", http.StatusForbidden)
-			return
-		}
-		token := strings.Split(auth, "Bearer ")
-		if len(token) == 2 {
-			auth = strings.TrimSpace(token[1])
-		} else {
-			logrus.Error("Incorrect format of authorization token")
-			http.Error(w, "Authorization failed.", http.StatusBadRequest)
-			return
-		}
-
-		authReal := jwtutils.GetSecretAuthToken()
-
-		userRole, err := h.jwtRepo.GetRole(&authReal, auth)
+		requestor, err := jwtutils.GetTokenClaims(r, h.jwtRepo)
 		if err != nil {
-			hasRole, err := models.HasRole(userRole, role)
-			if err != nil {
-				if hasRole {
-					next.ServeHTTP(w, r)
-				} else {
-					logrus.Error(fmt.Sprintf("User's role does meet the access level requirements: expecting '%s' got '%s'", role, userRole))
-					http.Error(w, "Authorization failed.", http.StatusUnauthorized)
-					return
-				}
-			} else {
-				logrus.Error(fmt.Sprintf("Unexpected error checking user's role: %s", err.Error()))
-				http.Error(w, internalServerErrMsg, http.StatusInternalServerError)
-				return
-			}
-		} else {
-			logrus.Error(fmt.Sprintf("Unexpected error parsing user's role from JWT: %s", err.Error()))
+			logMsg := "Authorization failed: " + err.Error()
+			utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Authorization Failed", logMsg)
+			return
+		}
+
+		hasRole, err := models.HasRole(requestor.UserRole, role)
+		if err != nil {
+			logrus.Error(fmt.Sprintf("Unexpected error checking user's role: %s", err.Error()))
 			http.Error(w, internalServerErrMsg, http.StatusInternalServerError)
 			return
 		}
+
+		if !hasRole {
+			logrus.Error(fmt.Sprintf("User's role does meet the access level requirements: expecting '%s' got '%s'", role, requestor.UserRole))
+			http.Error(w, "Authorization failed.", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
 	})
 }

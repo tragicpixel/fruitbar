@@ -95,16 +95,16 @@ func (s *UsersService) getHealthCheckAPIOptions() utils.CORSOptions {
 }
 
 func (s *UsersService) getCreateAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return utils.SendCORSPreflightHeaders(s.getCreateAPIOptions(), s.Handler.CreateUser) // update perms??
+	return s.Handler.IsAuthorized(s.Handler.HasRole(utils.SendCORSPreflightHeaders(s.getCreateAPIOptions(), s.Handler.CreateUser), models.GetAdminRoleId()))
 }
 func (s *UsersService) getReadAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return utils.SendCORSPreflightHeaders(s.getReadAPIOptions(), s.Handler.GetUsers) // change to read, update perms
+	return s.Handler.IsAuthorized(utils.SendCORSPreflightHeaders(s.getReadAPIOptions(), s.Handler.GetUsers))
 }
 func (s *UsersService) getUpdateAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return utils.SendCORSPreflightHeaders(s.getUpdateAPIOptions(), s.Handler.UpdateUser) // change to update, update perms
+	return s.Handler.IsAuthorized(s.Handler.HasRole(utils.SendCORSPreflightHeaders(s.getUpdateAPIOptions(), s.Handler.UpdateUser), models.GetAdminRoleId()))
 }
 func (s *UsersService) getDeleteAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return utils.SendCORSPreflightHeaders(s.getDeleteAPIOptions(), s.Handler.DeleteUser) // change to delete, update perms
+	return s.Handler.IsAuthorized(s.Handler.HasRole(utils.SendCORSPreflightHeaders(s.getDeleteAPIOptions(), s.Handler.DeleteUser), models.GetAdminRoleId()))
 }
 func (s *UsersService) getLoginAPIHandler() func(http.ResponseWriter, *http.Request) {
 	return utils.SendCORSPreflightHeaders(s.getLoginAPIOptions(), s.Handler.Login)

@@ -120,7 +120,7 @@ func GetQueryParamAsString(r *http.Request, paramName string) (string, error) {
 // PageSeekOptions holds the information required too perform a seek operation against a paginated repository.
 type PageSeekOptions struct {
 	// The maximum number of records to return.
-	RecordLimit int `json:"limit"`
+	RecordLimit uint `json:"limit"`
 	// The ID to begin the seek operation from.
 	StartId uint `json:"startid"`
 	// The direction to move away from the starting Id.
@@ -133,9 +133,17 @@ const (
 	SeekDirectionNone   = "none"
 )
 
+func (o *PageSeekOptions) GetIDs() []uint {
+	ids := make([]uint, o.RecordLimit)
+	for i := uint(0); i < o.RecordLimit; i++ {
+		ids[i] = i + o.StartId
+	}
+	return ids
+}
+
 // GetPageSeekOptionsByName gets the page seek options for the supplied http request and maximum record limit, using the supplied names for the query parameters.
 // Returns the page seek options and the JSON response, which will be an empty struct unless there is an error.
-func GetPageSeekOptionsByName(r *http.Request, beforeIdParam string, afterIdParam string, limitParam string, limitMax int) (opts *PageSeekOptions, err error) {
+func GetPageSeekOptionsByName(r *http.Request, beforeIdParam string, afterIdParam string, limitParam string, limitMax uint) (opts *PageSeekOptions, err error) {
 	opts = &PageSeekOptions{StartId: 0}
 	afterIdIsSet := r.URL.Query().Has(afterIdParam)
 	beforeIdIsSet := r.URL.Query().Has(beforeIdParam)
@@ -163,7 +171,7 @@ func GetPageSeekOptionsByName(r *http.Request, beforeIdParam string, afterIdPara
 
 	opts.RecordLimit = limitMax
 	if r.URL.Query().Has(limitParam) {
-		opts.RecordLimit, err = GetQueryParamAsInt(r, limitParam)
+		opts.RecordLimit, err = GetQueryParamAsUint(r, limitParam)
 		if err != nil {
 			return nil, err
 		}
@@ -177,7 +185,7 @@ func GetPageSeekOptionsByName(r *http.Request, beforeIdParam string, afterIdPara
 }
 
 // GetPageSeekOptions returns the page seek options for the supplied http request and maximum record limit using standardized names for the query parameters.
-func GetPageSeekOptions(r *http.Request, maxLimit int) (opts *PageSeekOptions, err error) {
+func GetPageSeekOptions(r *http.Request, maxLimit uint) (opts *PageSeekOptions, err error) {
 	return GetPageSeekOptionsByName(r, "before_id", "after_id", "limit", maxLimit)
 }
 

@@ -175,3 +175,13 @@ func DecodeJSONBodyAndGetErrorResponse(w http.ResponseWriter, r *http.Request, d
 func NewJsonResponseWithError(code int, msg string) JsonResponse {
 	return JsonResponse{Error: &JsonErrorResponse{Code: code, Message: msg}}
 }
+
+func WriteJSONErrorResponse(w http.ResponseWriter, status int, errMsg string, logMsg ...string) {
+	if logMsg != nil {
+		logrus.Error(logMsg)
+	} else {
+		logrus.Error(errMsg)
+	}
+	r := JsonResponse{Error: &JsonErrorResponse{Code: status, Message: errMsg}}
+	WriteJSONResponse(w, r.Error.Code, r)
+}

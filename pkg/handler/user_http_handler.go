@@ -318,19 +318,7 @@ func (h *User) getUsersPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logrus.Info("Counting users for users page read...")
-	count, err := h.repo.Count(seek)
-	if err != nil {
-		logMsg := fmt.Sprintf("Error counting users: %s", err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
-		return
-	}
-	startID, endID := uint(0), uint(0)
-	if len(users) > 0 {
-		startID = users[0].ID
-		endID = users[len(users)-1].ID
-	}
-	rangeStr := fmt.Sprintf("users=%d-%d/%d", startID, endID, count)
+	rangeStr := h.getUsersRangeStr(w, seek, users)
 	w.Header().Set("Content-Range", rangeStr)
 
 	logrus.Info(fmt.Sprintf("Read %d users", len(users)))
@@ -549,4 +537,22 @@ func (h *User) clientHasDeletePermsForID(w http.ResponseWriter, r *http.Request,
 		}
 	}
 	return true
+}
+
+// getUsersRangeStr returns a string representation of the range of the supplied products.
+func (h *User) getUsersRangeStr(w http.ResponseWriter, seek *utils.PageSeekOptions, users []*models.User) string {
+	logrus.Info("Counting users for users page read...")
+	count, err := h.repo.Count(seek)
+	if err != nil {
+		logMsg := fmt.Sprintf("Error counting users: %s", err.Error())
+		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		return ""
+	}
+	startID, endID := uint(0), uint(0)
+	if len(users) > 0 {
+		startID = users[0].ID
+		endID = users[len(users)-1].ID
+	}
+	rangeStr := fmt.Sprintf("users=%d-%d/%d", startID, endID, count)
+	return rangeStr
 }

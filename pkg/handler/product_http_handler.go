@@ -173,21 +173,8 @@ func (h *Product) getProductsPage(w http.ResponseWriter, r *http.Request) {
 		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
-	// TODO: Cache this count value and update every X seconds, so we don't need to perform a full count on every page read.
-	// TODO: I want a full count here, but I think this is just returning the number of total records based on this seek, not the total # of orders.
-	logrus.Info("Counting products...")
-	count, err := h.repo.Count(seek)
-	if err != nil {
-		logMsg := fmt.Sprintf("Error counting products: %s", err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
-		return
-	}
-	startID, endID := uint(0), uint(0)
-	if len(products) > 0 {
-		startID = products[0].ID
-		endID = products[len(products)-1].ID
-	}
-	rangeStr := fmt.Sprintf("products=%d-%d/%d", startID, endID, count)
+
+	rangeStr := h.getProductsRangeStr(w, seek, products)
 	w.Header().Set("Content-Range", rangeStr)
 	logrus.Info(fmt.Sprintf("Read %d products", len(products)))
 	response := utils.JsonResponse{Data: products}
@@ -300,4 +287,24 @@ func (h *Product) clientHasDeletePerms(w http.ResponseWriter, r *http.Request) b
 		return false
 	}
 	return true
+}
+
+// getProductsRangeStr returns a string representation of the range of the supplied products.
+func (h *Product) getProductsRangeStr(w http.ResponseWriter, seek *utils.PageSeekOptions, products []*models.Product) string {
+	logrus.Info("Counting products...")
+	// TODO: Cache this count value and update every X seconds, so we don't need to perform a full count on every page read.
+	// TODO: I want a full count here, but I think this is just returning the number of total records based on this seek, not the total # of orders.
+	count, err := h.repo.Count(seek)
+	if err != nil {
+		logMsg := fmt.Sprintf("Error counting products: %s", err.Error())
+		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		return ""
+	}
+	startID, endID := uint(0), uint(0)
+	if len(products) > 0 {
+		startID = products[0].ID
+		endID = products[len(products)-1].ID
+	}
+	rangeStr := fmt.Sprintf("products=%d-%d/%d", startID, endID, count)
+	return rangeStr
 }

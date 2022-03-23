@@ -232,21 +232,7 @@ func (h *Order) getOrdersPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Cache this count value and update every X seconds, so we don't need to perform a full count on every page read.
-	// TODO: I want a full count here, but I think this is just returning the number of total records based on this seek, not the total # of orders.
-	logrus.Info("Counting orders...")
-	count, err := h.repo.Count(seek)
-	if err != nil {
-		logMsg := fmt.Sprintf("Error counting orders: %s", err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
-		return
-	}
-	startID, endID := uint(0), uint(0)
-	if len(orders) > 0 {
-		startID = orders[0].ID
-		endID = orders[len(orders)-1].ID
-	}
-	rangeStr := fmt.Sprintf("orders%d-%d/%d", startID, endID, count)
+	rangeStr := h.getOrdersRangeStr(w, seek, orders)
 	w.Header().Set("Content-Range", rangeStr)
 	logrus.Info(fmt.Sprintf("Read %d orders", len(orders)))
 	response := utils.JsonResponse{Data: orders}
@@ -519,4 +505,22 @@ func (h *Order) clientHasDeletePermsForOrder(w http.ResponseWriter, r *http.Requ
 		return false
 	}
 	return true
+}
+
+// getUsersRangeStr returns a string representation of the range of the supplied orders.
+func (h *Order) getOrdersRangeStr(w http.ResponseWriter, seek *utils.PageSeekOptions, orders []*models.Order) string {
+	logrus.Info("Counting orders...")
+	count, err := h.repo.Count(seek)
+	if err != nil {
+		logMsg := fmt.Sprintf("Error counting orders: %s", err.Error())
+		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		return ""
+	}
+	startID, endID := uint(0), uint(0)
+	if len(orders) > 0 {
+		startID = orders[0].ID
+		endID = orders[len(orders)-1].ID
+	}
+	rangeStr := fmt.Sprintf("orders%d-%d/%d", startID, endID, count)
+	return rangeStr
 }

@@ -2,15 +2,14 @@ package repository
 
 import (
 	"github.com/tragicpixel/fruitbar/pkg/models"
-	"github.com/tragicpixel/fruitbar/pkg/utils"
 )
 
 // User provides an interface for performing operations on a repository of user accounts.
 type User interface {
 	// Count returns the count of all the records matching the supplied seek options.
-	Count(seek *utils.PageSeekOptions) (count int64, err error)
+	Count(seek *PageSeekOptions) (count int64, err error)
 	// Fetch returns the users in the repository matching the supplied seek options.
-	Fetch(pageSeekOptions *utils.PageSeekOptions) ([]*models.User, error)
+	Fetch(pageSeekOptions *PageSeekOptions) ([]*models.User, error)
 	// Exists determines if a user with the supplied id exists.
 	Exists(id uint) (bool, error)
 	// GetByID finds and returns an individual user with the supplied id. Returns nil on error.

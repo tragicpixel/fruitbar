@@ -5,7 +5,6 @@ import (
 
 	"github.com/tragicpixel/fruitbar/pkg/models"
 	"github.com/tragicpixel/fruitbar/pkg/repository"
-	"github.com/tragicpixel/fruitbar/pkg/utils"
 	"gorm.io/gorm"
 )
 
@@ -21,14 +20,14 @@ func NewPostgresItemRepo(db *gorm.DB) repository.Item {
 	}
 }
 
-func (r *PostgresItemRepo) Count(seek *utils.PageSeekOptions) (count int64, err error) {
+func (r *PostgresItemRepo) Count(seek *repository.PageSeekOptions) (count int64, err error) {
 	var result *gorm.DB
 	switch seek.Direction {
-	case utils.SeekDirectionBefore:
+	case repository.SeekDirectionBefore:
 		result = r.DB.Model(&models.Item{}).Where("ID < ?", seek.StartId).Count(&count)
-	case utils.SeekDirectionAfter:
+	case repository.SeekDirectionAfter:
 		result = r.DB.Model(&models.Item{}).Where("ID > ?", seek.StartId).Count(&count)
-	case utils.SeekDirectionNone:
+	case repository.SeekDirectionNone:
 		result = r.DB.Model(&models.Item{}).Count(&count)
 	default:
 		return -1, errors.New("invalid seek direction")
@@ -39,14 +38,14 @@ func (r *PostgresItemRepo) Count(seek *utils.PageSeekOptions) (count int64, err 
 	return count, nil
 }
 
-func (r *PostgresItemRepo) Fetch(seek *utils.PageSeekOptions) (items []*models.Item, err error) {
+func (r *PostgresItemRepo) Fetch(seek *repository.PageSeekOptions) (items []*models.Item, err error) {
 	var result *gorm.DB
 	switch seek.Direction {
-	case utils.SeekDirectionBefore:
+	case repository.SeekDirectionBefore:
 		result = r.DB.Limit(seek.RecordLimit).Where("ID < ?", seek.StartId).Find(&items)
-	case utils.SeekDirectionAfter:
+	case repository.SeekDirectionAfter:
 		result = r.DB.Limit(seek.RecordLimit).Where("ID > ?", seek.StartId).Find(&items)
-	case utils.SeekDirectionNone:
+	case repository.SeekDirectionNone:
 		result = r.DB.Limit(seek.RecordLimit).Find(&items)
 	default:
 		return nil, errors.New("invalid seek direction")

@@ -2,15 +2,14 @@ package repository
 
 import (
 	"github.com/tragicpixel/fruitbar/pkg/models"
-	"github.com/tragicpixel/fruitbar/pkg/utils"
 )
 
 // Order provides an interface for performing operations on a repoistory of orders.
 type Item interface {
 	// Count returns the count of all the records matching the supplied seek options.
-	Count(seek *utils.PageSeekOptions) (count int64, err error)
+	Count(seek *PageSeekOptions) (count int64, err error)
 	// Fetch returns the records in the repository matching the supplied seek options.
-	Fetch(pageSeekOptions *utils.PageSeekOptions) ([]*models.Item, error)
+	Fetch(pageSeekOptions *PageSeekOptions) ([]*models.Item, error)
 	// Exists determines if an item with the supplied id exists.
 	Exists(id uint) (bool, error)
 	// GetByID returns the item with the supplied id, if it exists.

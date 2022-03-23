@@ -2,15 +2,14 @@ package repository
 
 import (
 	"github.com/tragicpixel/fruitbar/pkg/models"
-	"github.com/tragicpixel/fruitbar/pkg/utils"
 )
 
 // Product provides an interface for performing operations on a repository of products.
 type Product interface {
 	// Count returns the count of all the records matching the supplied seek options.
-	Count(seek *utils.PageSeekOptions) (count int64, err error)
+	Count(seek *PageSeekOptions) (count int64, err error)
 	// Fetch returns the products in the repository matching the supplied seek options.
-	Fetch(pageSeekOptions *utils.PageSeekOptions) ([]*models.Product, error)
+	Fetch(pageSeekOptions *PageSeekOptions) ([]*models.Product, error)
 	// Exists determines if a product with the supplied id exists.
 	Exists(id uint) (bool, error)
 	// GetByID returns the product with the supplied id, if it exists.

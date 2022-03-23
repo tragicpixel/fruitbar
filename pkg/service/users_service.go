@@ -11,6 +11,7 @@ import (
 	pgdriver "github.com/tragicpixel/fruitbar/pkg/driver/postgres"
 	"github.com/tragicpixel/fruitbar/pkg/handler"
 	"github.com/tragicpixel/fruitbar/pkg/models"
+	"github.com/tragicpixel/fruitbar/pkg/models/roles"
 	"github.com/tragicpixel/fruitbar/pkg/utils"
 )
 
@@ -28,12 +29,6 @@ type UsersServiceConfig struct {
 }
 
 const (
-	usersServiceRegisterApiHandlerPath    = "/users/register"
-	usersServiceLoginApiHandlerPath       = "/users/login"
-	usersServiceHealthCheckApiHandlerPath = "/users/health"
-)
-
-const (
 	usersAPIBaseRoute           = "/users"
 	usersCreateAPIRoute         = usersAPIBaseRoute + "/register" // for now, remove /register later
 	usersReadAPIRoute           = usersAPIBaseRoute
@@ -46,65 +41,65 @@ const (
 
 func (s *UsersService) getCreateAPIOptions() utils.CORSOptions {
 	return utils.CORSOptions{
-		AllowedUrl:     handler.UI_URL,
+		AllowedUrl:     UI_URL,
 		APIName:        "Create User",
 		AllowedMethods: []string{http.MethodPost, http.MethodOptions},
 	}
 }
 func (s *UsersService) getReadAPIOptions() utils.CORSOptions {
 	return utils.CORSOptions{
-		AllowedUrl:     handler.UI_URL,
+		AllowedUrl:     UI_URL,
 		APIName:        "Read User",
 		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
 	}
 }
 func (s *UsersService) getUpdateAPIOptions() utils.CORSOptions {
 	return utils.CORSOptions{
-		AllowedUrl:     handler.UI_URL,
+		AllowedUrl:     UI_URL,
 		APIName:        "Update User",
 		AllowedMethods: []string{http.MethodPut, http.MethodOptions},
 	}
 }
 func (s *UsersService) getDeleteAPIOptions() utils.CORSOptions {
 	return utils.CORSOptions{
-		AllowedUrl:     handler.UI_URL,
+		AllowedUrl:     UI_URL,
 		APIName:        "Delete User",
 		AllowedMethods: []string{http.MethodDelete, http.MethodOptions},
 	}
 }
 func (s *UsersService) getLoginAPIOptions() utils.CORSOptions {
 	return utils.CORSOptions{
-		AllowedUrl:     handler.UI_URL,
+		AllowedUrl:     UI_URL,
 		APIName:        "Login User",
 		AllowedMethods: []string{http.MethodPost, http.MethodOptions},
 	}
 }
 func (s *UsersService) getPasswordFormatAPIOptions() utils.CORSOptions {
 	return utils.CORSOptions{
-		AllowedUrl:     handler.UI_URL,
+		AllowedUrl:     UI_URL,
 		APIName:        "Password Format",
 		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
 	}
 }
 func (s *UsersService) getHealthCheckAPIOptions() utils.CORSOptions {
 	return utils.CORSOptions{
-		AllowedUrl:     handler.UI_URL,
+		AllowedUrl:     UI_URL,
 		APIName:        "Health Check",
 		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
 	}
 }
 
 func (s *UsersService) getCreateAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.Handler.IsAuthorized(s.Handler.HasRole(utils.SendCORSPreflightHeaders(s.getCreateAPIOptions(), s.Handler.CreateUser), models.GetAdminRoleId()))
+	return s.Handler.IsAuthorized(s.Handler.HasRole(utils.SendCORSPreflightHeaders(s.getCreateAPIOptions(), s.Handler.CreateUser), roles.Admin))
 }
 func (s *UsersService) getReadAPIHandler() func(http.ResponseWriter, *http.Request) {
 	return s.Handler.IsAuthorized(utils.SendCORSPreflightHeaders(s.getReadAPIOptions(), s.Handler.GetUsers))
 }
 func (s *UsersService) getUpdateAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.Handler.IsAuthorized(s.Handler.HasRole(utils.SendCORSPreflightHeaders(s.getUpdateAPIOptions(), s.Handler.UpdateUser), models.GetAdminRoleId()))
+	return s.Handler.IsAuthorized(s.Handler.HasRole(utils.SendCORSPreflightHeaders(s.getUpdateAPIOptions(), s.Handler.UpdateUser), roles.Admin))
 }
 func (s *UsersService) getDeleteAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.Handler.IsAuthorized(s.Handler.HasRole(utils.SendCORSPreflightHeaders(s.getDeleteAPIOptions(), s.Handler.DeleteUser), models.GetAdminRoleId()))
+	return s.Handler.IsAuthorized(s.Handler.HasRole(utils.SendCORSPreflightHeaders(s.getDeleteAPIOptions(), s.Handler.DeleteUser), roles.Admin))
 }
 func (s *UsersService) getLoginAPIHandler() func(http.ResponseWriter, *http.Request) {
 	return utils.SendCORSPreflightHeaders(s.getLoginAPIOptions(), s.Handler.Login)

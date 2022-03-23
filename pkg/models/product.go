@@ -2,48 +2,62 @@ package models
 
 import (
 	"errors"
+	"fmt"
 	"unicode/utf8"
 
 	"gorm.io/gorm"
 )
 
 // swagger:model product
-// Product holds information about a given product.
+// Product represents a product that can be purchased in individual units and added as items to an order.
 type Product struct {
 	gorm.Model
+	// Name of the product.
 	Name string `json:"name"`
-	// The emoji used to represent the product. (if applicable)
-	Symbol     string  `json:"symbol"`
-	Price      float64 `json:"price"`
-	NumInStock int     `json:"numInStock"`
+	// The single rune used to represent the product. (if applicable) TODO: use rune type??
+	Symbol string `json:"symbol"`
+	// Price of the product, in dollars.
+	Price float64 `json:"price"`
+	// Number of the product currently in stock.
+	NumInStock int `json:"numInStock"`
 }
 
-func ValidateProduct(product *Product) (bool, error) {
-	_, err := ValidateProductSymbol(product.Symbol)
+func (p *Product) IsValid() (bool, error) {
+	errMsgPrefix := "failed to validate product: "
+	_, err := p.nameIsValid()
 	if err != nil {
-		return false, errors.New("failed to validate product: " + err.Error())
+		return false, errors.New(errMsgPrefix + err.Error())
 	}
-	_, err = ValidateProductPrice(product.Price)
+	_, err = p.symbolIsValid()
 	if err != nil {
-		return false, errors.New("failed to validate product: " + err.Error())
+		return false, errors.New(errMsgPrefix + err.Error())
+	}
+	_, err = p.priceIsValid()
+	if err != nil {
+		return false, errors.New(errMsgPrefix + err.Error())
+	}
+	_, err = p.numInStockIsValid()
+	if err != nil {
+		return false, errors.New(errMsgPrefix + err.Error())
 	}
 	return true, nil
 }
 
-// ValidatePartialProductUpdate validates the supplied selected fields of the supplied product.
-func ValidatePartialProductUpdate(product *Product, selectedFields []string) (bool, error) {
+func (p *Product) PartialUpdateIsValid(selectedFields []string) (bool, error) {
 	var err error
-	// this is not very maintainable in the long run, your options are:
-	// write a custom json.Marshal method
-	// use code generation tools to extract the names in the json annotation
+	// TODO: Use code generation tools to extract the names of the json annotations and use them here
 	for _, field := range selectedFields {
 		switch field {
+		case "name":
+			_, err = p.nameIsValid()
 		case "symbol":
-			_, err = ValidateProductSymbol(product.Symbol)
+			_, err = p.symbolIsValid()
 		case "price":
-			_, err = ValidateProductPrice(product.Price)
+			_, err = p.priceIsValid()
 		case "numInStock":
-			_, err = ValidateProductNumInStock(product.NumInStock)
+			_, err = p.numInStockIsValid()
+		default:
+			err = fmt.Errorf("field name is invalid: %s", field)
 		}
 		if err != nil {
 			return false, err
@@ -52,28 +66,36 @@ func ValidatePartialProductUpdate(product *Product, selectedFields []string) (bo
 	return true, nil
 }
 
-func ValidateProductSymbol(symbol string) (bool, error) {
-	length := utf8.RuneCountInString(symbol)
+func (p *Product) nameIsValid() (bool, error) {
+	if len(p.Name) < 1 {
+		return false, errors.New("name must be at least 1 character")
+	}
+	return true, nil
+}
+
+func (p *Product) symbolIsValid() (bool, error) {
+	errMsg := "symbol must be exactly 1 rune"
+	length := utf8.RuneCountInString(p.Symbol)
 	if length > 1 {
-		return false, errors.New("symbol must be exactly 1 rune")
+		return false, errors.New(errMsg)
 	} else if length < 1 {
-		return false, errors.New("symbol must be exactly 1 rune")
+		return false, errors.New(errMsg)
 	} else {
 		return true, nil
 	}
 }
 
-func ValidateProductPrice(price float64) (bool, error) {
-	if price <= 0 {
-		return false, errors.New("price must be greater than zero")
+func (p *Product) priceIsValid() (bool, error) {
+	if p.Price <= 0 {
+		return false, fmt.Errorf("price must be greater than zero, got %.2f", p.Price)
 	} else {
 		return true, nil
 	}
 }
 
-func ValidateProductNumInStock(numInStock int) (bool, error) {
-	if numInStock < 0 {
-		return false, errors.New("numInStock must be greater than or equal to zero")
+func (p *Product) numInStockIsValid() (bool, error) {
+	if p.NumInStock < 0 {
+		return false, fmt.Errorf("numInStock must be greater than or equal to zero, got %d", p.NumInStock)
 	} else {
 		return true, nil
 	}

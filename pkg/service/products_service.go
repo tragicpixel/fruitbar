@@ -5,6 +5,7 @@ import (
 	pgdriver "github.com/tragicpixel/fruitbar/pkg/driver/postgres"
 	"github.com/tragicpixel/fruitbar/pkg/handler"
 	"github.com/tragicpixel/fruitbar/pkg/models"
+	"github.com/tragicpixel/fruitbar/pkg/models/roles"
 	"github.com/tragicpixel/fruitbar/pkg/utils"
 
 	"errors"
@@ -40,51 +41,51 @@ const (
 
 func (s *ProductsService) getCreateAPICORSOptions() utils.CORSOptions {
 	return utils.CORSOptions{
-		AllowedUrl:     handler.UI_URL,
+		AllowedUrl:     UI_URL,
 		APIName:        "Create Product",
 		AllowedMethods: []string{http.MethodPost, http.MethodOptions},
 	}
 }
 func (s *ProductsService) getReadAPICORSOptions() utils.CORSOptions {
 	return utils.CORSOptions{
-		AllowedUrl:     handler.UI_URL,
+		AllowedUrl:     UI_URL,
 		APIName:        "Read Product",
 		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
 	}
 }
 func (s *ProductsService) getUpdateAPICORSOptions() utils.CORSOptions {
 	return utils.CORSOptions{
-		AllowedUrl:     handler.UI_URL,
+		AllowedUrl:     UI_URL,
 		APIName:        "Update Product",
 		AllowedMethods: []string{http.MethodPut, http.MethodOptions},
 	}
 }
 func (s *ProductsService) getDeleteAPICORSOptions() utils.CORSOptions {
 	return utils.CORSOptions{
-		AllowedUrl:     handler.UI_URL,
+		AllowedUrl:     UI_URL,
 		APIName:        "Delete Product",
 		AllowedMethods: []string{http.MethodDelete, http.MethodOptions},
 	}
 }
 func (s *ProductsService) getHealthCheckAPICORSOptions() utils.CORSOptions {
 	return utils.CORSOptions{
-		AllowedUrl:     handler.UI_URL,
+		AllowedUrl:     UI_URL,
 		APIName:        "Health Check",
 		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
 	}
 }
 
 func (s *ProductsService) getCreateAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.UserHandler.IsAuthorized(s.UserHandler.HasRole(utils.SendCORSPreflightHeaders(s.getCreateAPICORSOptions(), s.Handler.CreateProduct), models.GetAdminRoleId()))
+	return s.UserHandler.IsAuthorized(s.UserHandler.HasRole(utils.SendCORSPreflightHeaders(s.getCreateAPICORSOptions(), s.Handler.CreateProduct), roles.Admin))
 }
 func (s *ProductsService) getReadAPIHandler() func(http.ResponseWriter, *http.Request) {
 	return s.UserHandler.IsAuthorized(utils.SendCORSPreflightHeaders(s.getReadAPICORSOptions(), s.Handler.GetProducts))
 }
 func (s *ProductsService) getUpdateAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.UserHandler.IsAuthorized(s.UserHandler.HasRole(utils.SendCORSPreflightHeaders(s.getUpdateAPICORSOptions(), s.Handler.UpdateProduct), models.GetAdminRoleId()))
+	return s.UserHandler.IsAuthorized(s.UserHandler.HasRole(utils.SendCORSPreflightHeaders(s.getUpdateAPICORSOptions(), s.Handler.UpdateProduct), roles.Admin))
 }
 func (s *ProductsService) getDeleteAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.UserHandler.IsAuthorized(s.UserHandler.HasRole(utils.SendCORSPreflightHeaders(s.getDeleteAPICORSOptions(), s.Handler.DeleteProduct), models.GetAdminRoleId()))
+	return s.UserHandler.IsAuthorized(s.UserHandler.HasRole(utils.SendCORSPreflightHeaders(s.getDeleteAPICORSOptions(), s.Handler.DeleteProduct), roles.Admin))
 }
 func (s *ProductsService) getHealthCheckAPIHandler() func(http.ResponseWriter, *http.Request) {
 	return utils.SendCORSPreflightHeaders(s.getHealthCheckAPICORSOptions(), s.CheckHealth)

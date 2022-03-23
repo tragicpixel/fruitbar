@@ -42,35 +42,35 @@ const (
 
 func (s *OrdersService) getCreateAPICORSOptions() utils.CORSOptions {
 	return utils.CORSOptions{
-		AllowedUrl:     handler.UI_URL,
+		AllowedUrl:     UI_URL,
 		APIName:        "Create Order",
 		AllowedMethods: []string{http.MethodPost, http.MethodOptions},
 	}
 }
 func (s *OrdersService) getReadAPICORSOptions() utils.CORSOptions {
 	return utils.CORSOptions{
-		AllowedUrl:     handler.UI_URL,
+		AllowedUrl:     UI_URL,
 		APIName:        "Read Order",
 		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
 	}
 }
 func (s *OrdersService) getUpdateAPICORSOptions() utils.CORSOptions {
 	return utils.CORSOptions{
-		AllowedUrl:     handler.UI_URL,
+		AllowedUrl:     UI_URL,
 		APIName:        "Update Order",
 		AllowedMethods: []string{http.MethodPut, http.MethodOptions},
 	}
 }
 func (s *OrdersService) getDeleteAPICORSOptions() utils.CORSOptions {
 	return utils.CORSOptions{
-		AllowedUrl:     handler.UI_URL,
+		AllowedUrl:     UI_URL,
 		APIName:        "Delete Order",
 		AllowedMethods: []string{http.MethodDelete, http.MethodOptions},
 	}
 }
 func (s *OrdersService) getHealthCheckAPICORSOptions() utils.CORSOptions {
 	return utils.CORSOptions{
-		AllowedUrl:     handler.UI_URL,
+		AllowedUrl:     UI_URL,
 		APIName:        "Health Check",
 		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
 	}

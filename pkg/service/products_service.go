@@ -6,7 +6,8 @@ import (
 	"github.com/tragicpixel/fruitbar/pkg/handler"
 	"github.com/tragicpixel/fruitbar/pkg/models"
 	"github.com/tragicpixel/fruitbar/pkg/models/roles"
-	"github.com/tragicpixel/fruitbar/pkg/utils"
+	"github.com/tragicpixel/fruitbar/pkg/utils/cors"
+	"github.com/tragicpixel/fruitbar/pkg/utils/json"
 	"github.com/tragicpixel/fruitbar/pkg/utils/log"
 
 	"errors"
@@ -39,56 +40,56 @@ const (
 	productsHealthAPIRoute = productsAPIBaseRoute + "health"
 )
 
-func (s *ProductsService) getCreateAPICORSOptions() utils.CORSOptions {
-	return utils.CORSOptions{
-		AllowedUrl:     UI_URL,
+func (s *ProductsService) getCreateAPICORSOptions() cors.Options {
+	return cors.Options{
+		AllowedURL:     UI_URL,
 		APIName:        "Create Product",
 		AllowedMethods: []string{http.MethodPost, http.MethodOptions},
 	}
 }
-func (s *ProductsService) getReadAPICORSOptions() utils.CORSOptions {
-	return utils.CORSOptions{
-		AllowedUrl:     UI_URL,
+func (s *ProductsService) getReadAPICORSOptions() cors.Options {
+	return cors.Options{
+		AllowedURL:     UI_URL,
 		APIName:        "Read Product",
 		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
 	}
 }
-func (s *ProductsService) getUpdateAPICORSOptions() utils.CORSOptions {
-	return utils.CORSOptions{
-		AllowedUrl:     UI_URL,
+func (s *ProductsService) getUpdateAPICORSOptions() cors.Options {
+	return cors.Options{
+		AllowedURL:     UI_URL,
 		APIName:        "Update Product",
 		AllowedMethods: []string{http.MethodPut, http.MethodOptions},
 	}
 }
-func (s *ProductsService) getDeleteAPICORSOptions() utils.CORSOptions {
-	return utils.CORSOptions{
-		AllowedUrl:     UI_URL,
+func (s *ProductsService) getDeleteAPICORSOptions() cors.Options {
+	return cors.Options{
+		AllowedURL:     UI_URL,
 		APIName:        "Delete Product",
 		AllowedMethods: []string{http.MethodDelete, http.MethodOptions},
 	}
 }
-func (s *ProductsService) getHealthCheckAPICORSOptions() utils.CORSOptions {
-	return utils.CORSOptions{
-		AllowedUrl:     UI_URL,
+func (s *ProductsService) getHealthCheckAPICORSOptions() cors.Options {
+	return cors.Options{
+		AllowedURL:     UI_URL,
 		APIName:        "Health Check",
 		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
 	}
 }
 
 func (s *ProductsService) getCreateAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.UserHandler.IsAuthorized(s.UserHandler.HasRole(utils.SendCORSPreflightHeaders(s.getCreateAPICORSOptions(), s.Handler.CreateProduct), roles.Admin))
+	return s.UserHandler.IsAuthorized(s.UserHandler.HasRole(cors.SendPreflightHeaders(s.getCreateAPICORSOptions(), s.Handler.CreateProduct), roles.Admin))
 }
 func (s *ProductsService) getReadAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.UserHandler.IsAuthorized(utils.SendCORSPreflightHeaders(s.getReadAPICORSOptions(), s.Handler.GetProducts))
+	return s.UserHandler.IsAuthorized(cors.SendPreflightHeaders(s.getReadAPICORSOptions(), s.Handler.GetProducts))
 }
 func (s *ProductsService) getUpdateAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.UserHandler.IsAuthorized(s.UserHandler.HasRole(utils.SendCORSPreflightHeaders(s.getUpdateAPICORSOptions(), s.Handler.UpdateProduct), roles.Admin))
+	return s.UserHandler.IsAuthorized(s.UserHandler.HasRole(cors.SendPreflightHeaders(s.getUpdateAPICORSOptions(), s.Handler.UpdateProduct), roles.Admin))
 }
 func (s *ProductsService) getDeleteAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.UserHandler.IsAuthorized(s.UserHandler.HasRole(utils.SendCORSPreflightHeaders(s.getDeleteAPICORSOptions(), s.Handler.DeleteProduct), roles.Admin))
+	return s.UserHandler.IsAuthorized(s.UserHandler.HasRole(cors.SendPreflightHeaders(s.getDeleteAPICORSOptions(), s.Handler.DeleteProduct), roles.Admin))
 }
 func (s *ProductsService) getHealthCheckAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return utils.SendCORSPreflightHeaders(s.getHealthCheckAPICORSOptions(), s.CheckHealth)
+	return cors.SendPreflightHeaders(s.getHealthCheckAPICORSOptions(), s.CheckHealth)
 }
 
 // NewProductsService creates a new instance of a product listing service.
@@ -262,14 +263,14 @@ func (s *ProductsService) CheckHealth(w http.ResponseWriter, r *http.Request) {
 	db, err := s.DB.Postgres.DB()
 	if err != nil {
 		log.Error("products service health check failed: Error getting SQLDB from gorm DB: " + err.Error())
-		utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": false})
+		json.WriteResponse(w, http.StatusOK, map[string]bool{"ok": false})
 	} else {
 		if err = db.Ping(); err != nil {
 			log.Error("products service health check failed: error pinging the database: " + err.Error())
-			utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": false})
+			json.WriteResponse(w, http.StatusOK, map[string]bool{"ok": false})
 		} else {
 			log.Info("products service health check passed")
-			utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": true})
+			json.WriteResponse(w, http.StatusOK, map[string]bool{"ok": true})
 		}
 	}
 }

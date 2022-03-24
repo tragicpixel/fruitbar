@@ -11,7 +11,8 @@ import (
 	"github.com/tragicpixel/fruitbar/pkg/handler"
 	"github.com/tragicpixel/fruitbar/pkg/models"
 	"github.com/tragicpixel/fruitbar/pkg/models/roles"
-	"github.com/tragicpixel/fruitbar/pkg/utils"
+	"github.com/tragicpixel/fruitbar/pkg/utils/cors"
+	"github.com/tragicpixel/fruitbar/pkg/utils/json"
 	"github.com/tragicpixel/fruitbar/pkg/utils/log"
 )
 
@@ -39,76 +40,76 @@ const (
 	usersHealthAPIRoute         = usersAPIBaseRoute + "/health"
 )
 
-func (s *UsersService) getCreateAPIOptions() utils.CORSOptions {
-	return utils.CORSOptions{
-		AllowedUrl:     UI_URL,
+func (s *UsersService) getCreateAPIOptions() cors.Options {
+	return cors.Options{
+		AllowedURL:     UI_URL,
 		APIName:        "Create User",
 		AllowedMethods: []string{http.MethodPost, http.MethodOptions},
 	}
 }
-func (s *UsersService) getReadAPIOptions() utils.CORSOptions {
-	return utils.CORSOptions{
-		AllowedUrl:     UI_URL,
+func (s *UsersService) getReadAPIOptions() cors.Options {
+	return cors.Options{
+		AllowedURL:     UI_URL,
 		APIName:        "Read User",
 		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
 	}
 }
-func (s *UsersService) getUpdateAPIOptions() utils.CORSOptions {
-	return utils.CORSOptions{
-		AllowedUrl:     UI_URL,
+func (s *UsersService) getUpdateAPIOptions() cors.Options {
+	return cors.Options{
+		AllowedURL:     UI_URL,
 		APIName:        "Update User",
 		AllowedMethods: []string{http.MethodPut, http.MethodOptions},
 	}
 }
-func (s *UsersService) getDeleteAPIOptions() utils.CORSOptions {
-	return utils.CORSOptions{
-		AllowedUrl:     UI_URL,
+func (s *UsersService) getDeleteAPIOptions() cors.Options {
+	return cors.Options{
+		AllowedURL:     UI_URL,
 		APIName:        "Delete User",
 		AllowedMethods: []string{http.MethodDelete, http.MethodOptions},
 	}
 }
-func (s *UsersService) getLoginAPIOptions() utils.CORSOptions {
-	return utils.CORSOptions{
-		AllowedUrl:     UI_URL,
+func (s *UsersService) getLoginAPIOptions() cors.Options {
+	return cors.Options{
+		AllowedURL:     UI_URL,
 		APIName:        "Login User",
 		AllowedMethods: []string{http.MethodPost, http.MethodOptions},
 	}
 }
-func (s *UsersService) getPasswordFormatAPIOptions() utils.CORSOptions {
-	return utils.CORSOptions{
-		AllowedUrl:     UI_URL,
+func (s *UsersService) getPasswordFormatAPIOptions() cors.Options {
+	return cors.Options{
+		AllowedURL:     UI_URL,
 		APIName:        "Password Format",
 		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
 	}
 }
-func (s *UsersService) getHealthCheckAPIOptions() utils.CORSOptions {
-	return utils.CORSOptions{
-		AllowedUrl:     UI_URL,
+func (s *UsersService) getHealthCheckAPIOptions() cors.Options {
+	return cors.Options{
+		AllowedURL:     UI_URL,
 		APIName:        "Health Check",
 		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
 	}
 }
 
 func (s *UsersService) getCreateAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.Handler.IsAuthorized(s.Handler.HasRole(utils.SendCORSPreflightHeaders(s.getCreateAPIOptions(), s.Handler.CreateUser), roles.Admin))
+	return s.Handler.IsAuthorized(s.Handler.HasRole(cors.SendPreflightHeaders(s.getCreateAPIOptions(), s.Handler.CreateUser), roles.Admin))
 }
 func (s *UsersService) getReadAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.Handler.IsAuthorized(utils.SendCORSPreflightHeaders(s.getReadAPIOptions(), s.Handler.GetUsers))
+	return s.Handler.IsAuthorized(cors.SendPreflightHeaders(s.getReadAPIOptions(), s.Handler.GetUsers))
 }
 func (s *UsersService) getUpdateAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.Handler.IsAuthorized(s.Handler.HasRole(utils.SendCORSPreflightHeaders(s.getUpdateAPIOptions(), s.Handler.UpdateUser), roles.Admin))
+	return s.Handler.IsAuthorized(s.Handler.HasRole(cors.SendPreflightHeaders(s.getUpdateAPIOptions(), s.Handler.UpdateUser), roles.Admin))
 }
 func (s *UsersService) getDeleteAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.Handler.IsAuthorized(s.Handler.HasRole(utils.SendCORSPreflightHeaders(s.getDeleteAPIOptions(), s.Handler.DeleteUser), roles.Admin))
+	return s.Handler.IsAuthorized(s.Handler.HasRole(cors.SendPreflightHeaders(s.getDeleteAPIOptions(), s.Handler.DeleteUser), roles.Admin))
 }
 func (s *UsersService) getLoginAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return utils.SendCORSPreflightHeaders(s.getLoginAPIOptions(), s.Handler.Login)
+	return cors.SendPreflightHeaders(s.getLoginAPIOptions(), s.Handler.Login)
 }
 func (s *UsersService) getPasswordFormatAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return utils.SendCORSPreflightHeaders(s.getPasswordFormatAPIOptions(), s.Handler.GetPasswordFormatMessage)
+	return cors.SendPreflightHeaders(s.getPasswordFormatAPIOptions(), s.Handler.GetPasswordFormatMessage)
 }
 func (s *UsersService) getHealthCheckAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return utils.SendCORSPreflightHeaders(s.getHealthCheckAPIOptions(), s.CheckHealth)
+	return cors.SendPreflightHeaders(s.getHealthCheckAPIOptions(), s.CheckHealth)
 }
 
 // NewUsersService creates a new instance of a users service.
@@ -323,14 +324,14 @@ func (s *UsersService) CheckHealth(w http.ResponseWriter, r *http.Request) {
 	db, err := s.DB.Postgres.DB()
 	if err != nil {
 		log.Error("health check failed: Error getting SQLDB from gorm DB: " + err.Error())
-		utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": false})
+		json.WriteResponse(w, http.StatusOK, map[string]bool{"ok": false})
 		return
 	}
 	if err = db.Ping(); err != nil {
 		log.Error("health check failed: error pinging the database: " + err.Error())
-		utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": false})
+		json.WriteResponse(w, http.StatusOK, map[string]bool{"ok": false})
 		return
 	}
 	log.Info("health check passed")
-	utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": true})
+	json.WriteResponse(w, http.StatusOK, map[string]bool{"ok": true})
 }

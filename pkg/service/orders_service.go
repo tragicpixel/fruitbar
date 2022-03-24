@@ -5,7 +5,8 @@ import (
 	pgdriver "github.com/tragicpixel/fruitbar/pkg/driver/postgres"
 	"github.com/tragicpixel/fruitbar/pkg/handler"
 	"github.com/tragicpixel/fruitbar/pkg/models"
-	"github.com/tragicpixel/fruitbar/pkg/utils"
+	"github.com/tragicpixel/fruitbar/pkg/utils/cors"
+	"github.com/tragicpixel/fruitbar/pkg/utils/json"
 	"github.com/tragicpixel/fruitbar/pkg/utils/log"
 
 	"errors"
@@ -40,56 +41,56 @@ const (
 	ordersHealthAPIRoute = ordersAPIBaseRoute + "health"
 )
 
-func (s *OrdersService) getCreateAPICORSOptions() utils.CORSOptions {
-	return utils.CORSOptions{
-		AllowedUrl:     UI_URL,
+func (s *OrdersService) getCreateAPICORSOptions() cors.Options {
+	return cors.Options{
+		AllowedURL:     UI_URL,
 		APIName:        "Create Order",
 		AllowedMethods: []string{http.MethodPost, http.MethodOptions},
 	}
 }
-func (s *OrdersService) getReadAPICORSOptions() utils.CORSOptions {
-	return utils.CORSOptions{
-		AllowedUrl:     UI_URL,
+func (s *OrdersService) getReadAPICORSOptions() cors.Options {
+	return cors.Options{
+		AllowedURL:     UI_URL,
 		APIName:        "Read Order",
 		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
 	}
 }
-func (s *OrdersService) getUpdateAPICORSOptions() utils.CORSOptions {
-	return utils.CORSOptions{
-		AllowedUrl:     UI_URL,
+func (s *OrdersService) getUpdateAPICORSOptions() cors.Options {
+	return cors.Options{
+		AllowedURL:     UI_URL,
 		APIName:        "Update Order",
 		AllowedMethods: []string{http.MethodPut, http.MethodOptions},
 	}
 }
-func (s *OrdersService) getDeleteAPICORSOptions() utils.CORSOptions {
-	return utils.CORSOptions{
-		AllowedUrl:     UI_URL,
+func (s *OrdersService) getDeleteAPICORSOptions() cors.Options {
+	return cors.Options{
+		AllowedURL:     UI_URL,
 		APIName:        "Delete Order",
 		AllowedMethods: []string{http.MethodDelete, http.MethodOptions},
 	}
 }
-func (s *OrdersService) getHealthCheckAPICORSOptions() utils.CORSOptions {
-	return utils.CORSOptions{
-		AllowedUrl:     UI_URL,
+func (s *OrdersService) getHealthCheckAPICORSOptions() cors.Options {
+	return cors.Options{
+		AllowedURL:     UI_URL,
 		APIName:        "Health Check",
 		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
 	}
 }
 
 func (s *OrdersService) getCreateAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.UserHandler.IsAuthorized(utils.SendCORSPreflightHeaders(s.getCreateAPICORSOptions(), s.Handler.CreateOrder))
+	return s.UserHandler.IsAuthorized(cors.SendPreflightHeaders(s.getCreateAPICORSOptions(), s.Handler.CreateOrder))
 }
 func (s *OrdersService) getReadAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.UserHandler.IsAuthorized(utils.SendCORSPreflightHeaders(s.getReadAPICORSOptions(), s.Handler.GetOrders))
+	return s.UserHandler.IsAuthorized(cors.SendPreflightHeaders(s.getReadAPICORSOptions(), s.Handler.GetOrders))
 }
 func (s *OrdersService) getUpdateAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.UserHandler.IsAuthorized(utils.SendCORSPreflightHeaders(s.getUpdateAPICORSOptions(), s.Handler.UpdateOrder))
+	return s.UserHandler.IsAuthorized(cors.SendPreflightHeaders(s.getUpdateAPICORSOptions(), s.Handler.UpdateOrder))
 }
 func (s *OrdersService) getDeleteAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.UserHandler.IsAuthorized(utils.SendCORSPreflightHeaders(s.getDeleteAPICORSOptions(), s.Handler.DeleteOrder))
+	return s.UserHandler.IsAuthorized(cors.SendPreflightHeaders(s.getDeleteAPICORSOptions(), s.Handler.DeleteOrder))
 }
 func (s *OrdersService) getHealthCheckAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return utils.SendCORSPreflightHeaders(s.getHealthCheckAPICORSOptions(), s.CheckHealth)
+	return cors.SendPreflightHeaders(s.getHealthCheckAPICORSOptions(), s.CheckHealth)
 }
 
 // NewOrdersService creates a new instance of a data entry service.
@@ -284,14 +285,14 @@ func (s *OrdersService) CheckHealth(w http.ResponseWriter, r *http.Request) {
 	db, err := s.DB.Postgres.DB()
 	if err != nil {
 		log.Error("orders service health check failed: Error getting SQLDB from gorm DB: " + err.Error())
-		utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": false})
+		json.WriteResponse(w, http.StatusOK, map[string]bool{"ok": false})
 	} else {
 		if err = db.Ping(); err != nil {
 			log.Error("orders service health check failed: error pinging the database: " + err.Error())
-			utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": false})
+			json.WriteResponse(w, http.StatusOK, map[string]bool{"ok": false})
 		} else {
 			log.Info("orders service health check passed")
-			utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": true})
+			json.WriteResponse(w, http.StatusOK, map[string]bool{"ok": true})
 		}
 	}
 }

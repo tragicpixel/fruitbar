@@ -8,6 +8,8 @@ import (
 	jwtrepo "github.com/tragicpixel/fruitbar/pkg/repository/jwt"
 	userrepo "github.com/tragicpixel/fruitbar/pkg/repository/user"
 	"github.com/tragicpixel/fruitbar/pkg/utils"
+	httputils "github.com/tragicpixel/fruitbar/pkg/utils/http"
+	"github.com/tragicpixel/fruitbar/pkg/utils/json"
 	jwtutils "github.com/tragicpixel/fruitbar/pkg/utils/jwt"
 	"github.com/tragicpixel/fruitbar/pkg/utils/log"
 	stringutils "github.com/tragicpixel/fruitbar/pkg/utils/string"
@@ -37,14 +39,14 @@ func NewUserHandler(db *driver.DB) *User {
 // If there is a permission error, an HTTP error will be sent.
 func (h *User) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var user models.User
-	response := *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &user, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
+	response := *json.DecodeAndGetErrorResponse(w, r, &user, json.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
 	if response.Error != nil {
-		utils.WriteJSONErrorResponse(w, response.Error.Code, response.Error.Message)
+		json.WriteErrorResponse(w, response.Error.Code, response.Error.Message)
 		return
 	}
 	_, err := user.IsValid()
 	if err != nil {
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "User "+validationFailedErrMsgPrefix+err.Error())
+		json.WriteErrorResponse(w, http.StatusBadRequest, "User "+validationFailedErrMsgPrefix+err.Error())
 		return
 	}
 
@@ -56,19 +58,19 @@ func (h *User) CreateUser(w http.ResponseWriter, r *http.Request) {
 	existingUser, err := h.repo.GetByUsername(user.Name)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		logMsg := fmt.Sprintf("Failed to check if user %s exists: %s", user.Name, err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 	if existingUser != nil {
 		msg := fmt.Sprintf("Failed to create user %s: a user with that name already exists", user.Name)
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, msg)
+		json.WriteErrorResponse(w, http.StatusBadRequest, msg)
 		return
 	}
 
 	err = h.repo.HashPassword(&user, user.Password)
 	if err != nil {
 		logMsg := fmt.Sprintf("failed to hash password: %s", err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 
@@ -76,12 +78,12 @@ func (h *User) CreateUser(w http.ResponseWriter, r *http.Request) {
 	id, err := h.repo.Create(&user)
 	if err != nil {
 		logMsg := fmt.Sprintf("Failed to create new user %s: %s", user.Name, err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 	log.Info(fmt.Sprintf("Created new user '%s' (id: %d)", user.Name, id))
-	response = utils.JsonResponse{Data: []*models.User{&user}}
-	utils.WriteJSONResponse(w, http.StatusCreated, response)
+	response = json.Response{Data: []*models.User{&user}}
+	json.WriteResponse(w, http.StatusCreated, response)
 }
 
 // GetUsers sends a response to the supplied http response writer containing the requested user(s), based on the supplied http request.
@@ -96,9 +98,9 @@ func (h *User) GetUsers(w http.ResponseWriter, r *http.Request) {
 // UpdateUser updates an existing user based on the supplied http request and sends a response in JSON containing the updated user to the supplied http response writer.
 func (h *User) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	var user models.User
-	response := *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &user, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
+	response := *json.DecodeAndGetErrorResponse(w, r, &user, json.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
 	if response.Error != nil {
-		utils.WriteJSONErrorResponse(w, response.Error.Code, response.Error.Message)
+		json.WriteErrorResponse(w, response.Error.Code, response.Error.Message)
 		return
 	}
 
@@ -115,9 +117,9 @@ func (h *User) UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 // DeleteProduct deletes an existing user from the repo based on the supplied http request, and returns a status message in JSON to the user.
 func (h *User) DeleteUser(w http.ResponseWriter, r *http.Request) {
-	id, err := utils.GetQueryParamAsUint(r, idParam)
+	id, err := httputils.GetQueryParamAsUint(r, idParam)
 	if err != nil {
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
+		json.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -129,26 +131,26 @@ func (h *User) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	err = h.repo.Delete(id)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error deleting User (id: %d): %s", id, err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 	log.Info(fmt.Sprintf("Successfully deleted User with id = %d.", id))
-	response := utils.JsonResponse{}
-	utils.WriteJSONResponse(w, http.StatusOK, response) // could also just w.WriteHeader(http.StatusNoContent) and not send a response at all?
+	response := json.Response{}
+	json.WriteResponse(w, http.StatusOK, response) // could also just w.WriteHeader(http.StatusNoContent) and not send a response at all?
 }
 
 // GetPasswordFormatMessage always sends a response containing a message explaining the constraints applied when setting a new password.
 // This is the single source of truth for information about the expected format of a new password.
 func (h *User) GetPasswordFormatMessage(w http.ResponseWriter, r *http.Request) {
-	utils.WriteJSONResponse(w, http.StatusOK, utils.JsonResponse{Data: models.PasswordFormatReqMsg()})
+	json.WriteResponse(w, http.StatusOK, json.Response{Data: models.PasswordFormatReqMsg()})
 }
 
 // Login attempts to authorize a user based on the supplied credentials (in the http request), and returns a message in JSON on error, or a JSON Web Token on success.
 func (h *User) Login(w http.ResponseWriter, r *http.Request) {
 	user := models.User{}
-	response := *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &user, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
+	response := *json.DecodeAndGetErrorResponse(w, r, &user, json.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
 	if response.Error != nil {
-		utils.WriteJSONErrorResponse(w, response.Error.Code, response.Error.Message)
+		json.WriteErrorResponse(w, response.Error.Code, response.Error.Message)
 		return
 	}
 
@@ -157,18 +159,18 @@ func (h *User) Login(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			logMsg := fmt.Sprintf("failed to find user with username: %s: %s", user.Name, err.Error())
-			utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Invalid user credentials.", logMsg)
+			json.WriteErrorResponse(w, http.StatusBadRequest, "Invalid user credentials.", logMsg)
 			return
 		}
 		log.Error(fmt.Sprintf("failed to select user '%s' for login: %s", user.Name, err.Error()))
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg)
 		return
 	}
 
 	err = h.repo.CheckPassword(storedUser, user.Password)
 	if err != nil {
 		log.Error(fmt.Sprintf("Failed to authenticate user %s: password check failed: %s", user.Name, err.Error()))
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Invalid user credentials.")
+		json.WriteErrorResponse(w, http.StatusBadRequest, "Invalid user credentials.")
 		return
 	}
 
@@ -178,12 +180,12 @@ func (h *User) Login(w http.ResponseWriter, r *http.Request) {
 	signedToken, err := h.jwtRepo.GenerateToken(&jwt, storedUser)
 	if err != nil {
 		log.Error(fmt.Sprintf("Failed to generate token: %s", err.Error()))
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg)
 		return
 	}
 	log.Info(fmt.Sprintf("Authentication successful for user '%s'", user.Name))
-	response = utils.JsonResponse{Token: signedToken}
-	utils.WriteJSONResponse(w, http.StatusOK, response)
+	response = json.Response{Token: signedToken}
+	json.WriteResponse(w, http.StatusOK, response)
 }
 
 // IsAuthorized checks the authorization header of the given HTTP request to see if a valid JSON Web Token is included.
@@ -236,7 +238,7 @@ func (h *User) HasRole(next http.HandlerFunc, role string) http.HandlerFunc {
 		requestor, err := jwtutils.GetTokenClaims(r, h.jwtRepo)
 		if err != nil {
 			logMsg := unauthorizedErrMsgPrefix + err.Error()
-			utils.WriteJSONErrorResponse(w, http.StatusBadRequest, unauthorizedErrMsg, logMsg)
+			json.WriteErrorResponse(w, http.StatusBadRequest, unauthorizedErrMsg, logMsg)
 			return
 		}
 
@@ -259,9 +261,9 @@ func (h *User) HasRole(next http.HandlerFunc, role string) http.HandlerFunc {
 // getSingleUser retrieves a single user from the user repository based on the supplied id via http query parameter.
 // Sends a response in json to the supplied http ResponseWriter.
 func (h *User) getSingleUser(w http.ResponseWriter, r *http.Request) {
-	id, err := utils.GetQueryParamAsUint(r, idParam)
+	id, err := httputils.GetQueryParamAsUint(r, idParam)
 	if err != nil {
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
+		json.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -274,7 +276,7 @@ func (h *User) getSingleUser(w http.ResponseWriter, r *http.Request) {
 	user, err = h.repo.GetByID(id)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error selecting user (id: %d): %s", id, err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 	log.Info(fmt.Sprintf("Read user (id: %d)", id))
@@ -284,8 +286,8 @@ func (h *User) getSingleUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := utils.JsonResponse{Data: []*models.User{user}}
-	utils.WriteJSONResponse(w, http.StatusOK, response)
+	response := json.Response{Data: []*models.User{user}}
+	json.WriteResponse(w, http.StatusOK, response)
 }
 
 // getUsersPage retrieves a single user from the user repository based on the supplied seek options via http query parameter.
@@ -294,7 +296,7 @@ func (h *User) getUsersPage(w http.ResponseWriter, r *http.Request) {
 	var seek *repository.PageSeekOptions
 	seek, err := utils.GetPageSeekOptions(r, readPageMaxLimit)
 	if err != nil {
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
+		json.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -303,7 +305,7 @@ func (h *User) getUsersPage(w http.ResponseWriter, r *http.Request) {
 	users, err = h.repo.Fetch(seek)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error reading users: %s", err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 	for _, user := range users {
@@ -319,8 +321,8 @@ func (h *User) getUsersPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Range", rangeStr)
 
 	log.Info(fmt.Sprintf("Read %d users", len(users)))
-	response := utils.JsonResponse{Data: users}
-	utils.WriteJSONResponse(w, http.StatusOK, response)
+	response := json.Response{Data: users}
+	json.WriteResponse(w, http.StatusOK, response)
 }
 
 // partiallyUpdateUser updates only the specified fields (via http query parameter) of the supplied user
@@ -331,7 +333,7 @@ func (h *User) partiallyUpdateUser(w http.ResponseWriter, r *http.Request, user 
 
 	_, err := user.ValidatePartialUserUpdate(fields)
 	if err != nil {
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "User "+validationFailedErrMsgPrefix+err.Error())
+		json.WriteErrorResponse(w, http.StatusBadRequest, "User "+validationFailedErrMsgPrefix+err.Error())
 		return
 	}
 
@@ -340,7 +342,7 @@ func (h *User) partiallyUpdateUser(w http.ResponseWriter, r *http.Request, user 
 		err = h.repo.HashPassword(&user, user.Password)
 		if err != nil {
 			logMsg := fmt.Sprintf("Failed to hash password: %s", err.Error())
-			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+			json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 			return
 		}
 	}
@@ -349,12 +351,12 @@ func (h *User) partiallyUpdateUser(w http.ResponseWriter, r *http.Request, user 
 	updated, err := h.repo.Update(&user, fields)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error partially updating User (id: %d)  fields (%s) : %s", user.ID, fieldsStr, err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 	log.Info(fmt.Sprintf("Partially updated User (id: %d) fields (%s): %+v", user.ID, fieldsStr, updated))
-	response := utils.JsonResponse{Data: []*models.User{&user}}
-	utils.WriteJSONResponse(w, http.StatusOK, response)
+	response := json.Response{Data: []*models.User{&user}}
+	json.WriteResponse(w, http.StatusOK, response)
 }
 
 // fullyUpdateUser updates all of the fields of the supplied user
@@ -362,14 +364,14 @@ func (h *User) partiallyUpdateUser(w http.ResponseWriter, r *http.Request, user 
 func (h *User) fullyUpdateUser(w http.ResponseWriter, r *http.Request, user models.User) {
 	_, err := user.IsValid()
 	if err != nil {
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "User "+validationFailedErrMsgPrefix+err.Error())
+		json.WriteErrorResponse(w, http.StatusBadRequest, "User "+validationFailedErrMsgPrefix+err.Error())
 		return
 	}
 
 	err = h.repo.HashPassword(&user, user.Password)
 	if err != nil {
 		logMsg := fmt.Sprintf("Failed to hash password: %s", err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 
@@ -377,12 +379,12 @@ func (h *User) fullyUpdateUser(w http.ResponseWriter, r *http.Request, user mode
 	updated, err := h.repo.Update(&user, []string{})
 	if err != nil {
 		logMsg := fmt.Sprintf("Error fully updating User with id = %d: %+v: %s", user.ID, user, err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 	log.Info(fmt.Sprintf("Fully updated User (id: %d): %+v", user.ID, updated))
-	response := utils.JsonResponse{Data: []*models.User{&user}}
-	utils.WriteJSONResponse(w, http.StatusOK, response)
+	response := json.Response{Data: []*models.User{&user}}
+	json.WriteResponse(w, http.StatusOK, response)
 }
 
 // getClientAuthInfo returns the authorization information about the client based on the supplied http request.
@@ -391,13 +393,13 @@ func (h *User) getClientAuthInfo(w http.ResponseWriter, r *http.Request) *models
 	client, err := jwtutils.GetTokenClaims(r, h.jwtRepo)
 	if err != nil {
 		logMsg := unauthorizedErrMsgPrefix + err.Error()
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, unauthorizedErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusBadRequest, unauthorizedErrMsg, logMsg)
 		return nil
 	}
 	_, err = roles.IsValid(client.UserRole)
 	if err != nil {
 		logMsg := unauthorizedErrMsgPrefix + err.Error()
-		utils.WriteJSONErrorResponse(w, http.StatusUnauthorized, unauthorizedErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusUnauthorized, unauthorizedErrMsg, logMsg)
 		return nil
 	}
 	return client
@@ -428,13 +430,13 @@ func (h *User) clientHasReadPerms(w http.ResponseWriter, r *http.Request, id uin
 	if user == nil {
 		// Customers can only read their own user account
 		if client.UserRole == roles.Customer && client.UserID != id {
-			utils.WriteJSONErrorResponse(w, http.StatusForbidden, forbiddenReadUserErrMsg)
+			json.WriteErrorResponse(w, http.StatusForbidden, forbiddenReadUserErrMsg)
 			return false
 		}
 	} else {
 		// Employees can read any customer user account and their own user account
 		if client.UserRole == roles.Employee && (user.Role != roles.Customer && client.UserID != id) {
-			utils.WriteJSONErrorResponse(w, http.StatusForbidden, forbiddenReadUserErrMsg)
+			json.WriteErrorResponse(w, http.StatusForbidden, forbiddenReadUserErrMsg)
 			return false
 		}
 	}
@@ -491,12 +493,12 @@ func (h *User) clientHasUpdatePermsForUser(w http.ResponseWriter, r *http.Reques
 	}
 	// Customers can only update their own user account
 	if client.UserRole == roles.Customer && user.ID != client.UserID {
-		utils.WriteJSONErrorResponse(w, http.StatusForbidden, forbiddenUpdateUserErrMsg)
+		json.WriteErrorResponse(w, http.StatusForbidden, forbiddenUpdateUserErrMsg)
 		return false
 	}
 	// Employees can only update customer accounts and their own user account
 	if client.UserRole == roles.Employee && (user.ID != client.UserID && user.Role != roles.Customer) {
-		utils.WriteJSONErrorResponse(w, http.StatusForbidden, forbiddenUpdateUserErrMsg)
+		json.WriteErrorResponse(w, http.StatusForbidden, forbiddenUpdateUserErrMsg)
 		return false
 	}
 	return true
@@ -511,12 +513,12 @@ func (h *User) clientHasDeletePermsForID(w http.ResponseWriter, r *http.Request,
 	}
 	// Prevent users from deleting themselves.
 	if client.UserID == id {
-		utils.WriteJSONErrorResponse(w, http.StatusForbidden, forbiddenDeleteUserErrMsg)
+		json.WriteErrorResponse(w, http.StatusForbidden, forbiddenDeleteUserErrMsg)
 		return false
 	}
 	// Customers can only update their own user account
 	if client.UserRole == roles.Customer && id != client.UserID {
-		utils.WriteJSONErrorResponse(w, http.StatusForbidden, forbiddenDeleteUserErrMsg)
+		json.WriteErrorResponse(w, http.StatusForbidden, forbiddenDeleteUserErrMsg)
 		return false
 	}
 	// Employees can only update customer accounts and their own user account
@@ -525,11 +527,11 @@ func (h *User) clientHasDeletePermsForID(w http.ResponseWriter, r *http.Request,
 		user, err := h.repo.GetByID(id)
 		if err != nil {
 			logMsg := fmt.Sprintf("Error reading user (id: %d): %s", id, err.Error())
-			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+			json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 			return false
 		}
 		if user.Role != roles.Customer {
-			utils.WriteJSONErrorResponse(w, http.StatusForbidden, forbiddenDeleteUserErrMsg)
+			json.WriteErrorResponse(w, http.StatusForbidden, forbiddenDeleteUserErrMsg)
 			return false
 		}
 	}
@@ -542,7 +544,7 @@ func (h *User) getUsersRangeStr(w http.ResponseWriter, seek *repository.PageSeek
 	count, err := h.repo.Count(seek)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error counting users: %s", err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return ""
 	}
 	startID, endID := uint(0), uint(0)

@@ -13,6 +13,8 @@ import (
 	orderrepo "github.com/tragicpixel/fruitbar/pkg/repository/order"
 	productsrepo "github.com/tragicpixel/fruitbar/pkg/repository/product"
 	"github.com/tragicpixel/fruitbar/pkg/utils"
+	httputils "github.com/tragicpixel/fruitbar/pkg/utils/http"
+	"github.com/tragicpixel/fruitbar/pkg/utils/json"
 	jwtutils "github.com/tragicpixel/fruitbar/pkg/utils/jwt"
 	"github.com/tragicpixel/fruitbar/pkg/utils/log"
 	"gorm.io/gorm"
@@ -43,9 +45,9 @@ func NewOrderHandler(db *driver.DB) *Order {
 // If there is a permission error, an HTTP error will be sent.
 func (h *Order) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	var order models.Order
-	response := *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &order, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
+	response := *json.DecodeAndGetErrorResponse(w, r, &order, json.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
 	if response.Error != nil {
-		utils.WriteJSONErrorResponse(w, response.Error.Code, response.Error.Message)
+		json.WriteErrorResponse(w, response.Error.Code, response.Error.Message)
 		return
 	}
 
@@ -55,18 +57,18 @@ func (h *Order) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	_, err := models.ValidateNewOrder(&order)
 	if err != nil {
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Order "+validationFailedErrMsgPrefix+err.Error())
+		json.WriteErrorResponse(w, http.StatusBadRequest, "Order "+validationFailedErrMsgPrefix+err.Error())
 		return
 	}
 	if err := h.itemsAreValid(order.Items); err != nil {
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Items "+validationFailedErrMsgPrefix+err.Error())
+		json.WriteErrorResponse(w, http.StatusBadRequest, "Items "+validationFailedErrMsgPrefix+err.Error())
 		return
 	}
 
 	subtotal, err := h.calculateOrderSubtotal(&order)
 	if err != nil {
 		logMsg := "Failed to calculate new order subtotal: " + err.Error()
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 	order.Subtotal = subtotal
@@ -77,7 +79,7 @@ func (h *Order) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	createdID, itemIds, err := h.repo.Create(&order)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error inserting order %+v into database: %s", order, err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 	// Update all newly created items (gorm creates them) with the order's ID (didn't know the order ID until created)
@@ -89,13 +91,13 @@ func (h *Order) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		_, err := h.itemsRepo.Update(&update, []string{"orderid", "id"})
 		if err != nil {
 			logMsg := fmt.Sprintf("Error updating item (id: %d) for order (id: %d): %s", id, order.ID, err.Error())
-			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+			json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 			return
 		}
 	}
 	log.Info(fmt.Sprintf("Created new order (id: %d): %+v", createdID, order))
-	response = utils.JsonResponse{Data: []*models.Order{&order}}
-	utils.WriteJSONResponse(w, http.StatusCreated, response)
+	response = json.Response{Data: []*models.Order{&order}}
+	json.WriteResponse(w, http.StatusCreated, response)
 }
 
 // GetOrders sends a response to the supplied http response writer containing the requested order(s), based on the supplied http request.
@@ -110,9 +112,9 @@ func (h *Order) GetOrders(w http.ResponseWriter, r *http.Request) {
 // UpdateOrder updates an existing order based on the supplied http request and sends a response in JSON containing the updated order to the supplied http response writer.
 func (h *Order) UpdateOrder(w http.ResponseWriter, r *http.Request) {
 	var order models.Order
-	response := *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &order, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
+	response := *json.DecodeAndGetErrorResponse(w, r, &order, json.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
 	if response.Error != nil {
-		utils.WriteJSONErrorResponse(w, response.Error.Code, response.Error.Message)
+		json.WriteErrorResponse(w, response.Error.Code, response.Error.Message)
 		return
 	}
 
@@ -121,7 +123,7 @@ func (h *Order) UpdateOrder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.itemsAreValid(order.Items); err != nil {
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Items "+validationFailedErrMsgPrefix+err.Error())
+		json.WriteErrorResponse(w, http.StatusBadRequest, "Items "+validationFailedErrMsgPrefix+err.Error())
 		return
 	}
 
@@ -134,9 +136,9 @@ func (h *Order) UpdateOrder(w http.ResponseWriter, r *http.Request) {
 
 // DeleteOrder deletes an existing order and all of its child items based on the supplied http request and sends a status code to the supplied http response writer.
 func (h *Order) DeleteOrder(w http.ResponseWriter, r *http.Request) {
-	id, err := utils.GetQueryParamAsUint(r, idParam)
+	id, err := httputils.GetQueryParamAsUint(r, idParam)
 	if err != nil {
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
+		json.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -144,7 +146,7 @@ func (h *Order) DeleteOrder(w http.ResponseWriter, r *http.Request) {
 	order, err := h.repo.GetByID(id)
 	if err != nil {
 		logMsg := "Error reading order for proposed deletion: " + err.Error()
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 
@@ -156,7 +158,7 @@ func (h *Order) DeleteOrder(w http.ResponseWriter, r *http.Request) {
 	existingItems, err := h.itemsRepo.GetByOrderID(id)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error reading existing items for order (id: %d): %s", id, err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 	for _, item := range existingItems {
@@ -164,7 +166,7 @@ func (h *Order) DeleteOrder(w http.ResponseWriter, r *http.Request) {
 		err := h.itemsRepo.Delete(item.ID)
 		if err != nil {
 			logMsg := fmt.Sprintf("Error deleting existing item (id: %d): %s", item.ID, err.Error())
-			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+			json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 			return
 		}
 	}
@@ -173,7 +175,7 @@ func (h *Order) DeleteOrder(w http.ResponseWriter, r *http.Request) {
 	err = h.repo.Delete(id)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error deleting order (id %d): %s", id, err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 	log.Info(fmt.Sprintf("Deleted order (id: %d)", id))
@@ -184,9 +186,9 @@ func (h *Order) DeleteOrder(w http.ResponseWriter, r *http.Request) {
 // getSingleOrder sends a response to the supplied http response writer containing the requested order, based on the supplied http request.
 // If read access to a specific order is forbidden, an error will be sent.
 func (h *Order) getSingleOrder(w http.ResponseWriter, r *http.Request) {
-	id, err := utils.GetQueryParamAsUint(r, idParam)
+	id, err := httputils.GetQueryParamAsUint(r, idParam)
 	if err != nil {
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
+		json.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	log.Info(fmt.Sprintf("Selecting order with id %d...", id))
@@ -194,7 +196,7 @@ func (h *Order) getSingleOrder(w http.ResponseWriter, r *http.Request) {
 	order, err = h.repo.GetByID(id)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error selecting order (id: %d): %s", id, err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 	log.Info(fmt.Sprintf("Successfully selected order with id = %d", id))
@@ -203,8 +205,8 @@ func (h *Order) getSingleOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := utils.JsonResponse{Data: []*models.Order{order}}
-	utils.WriteJSONResponse(w, http.StatusOK, response)
+	response := json.Response{Data: []*models.Order{order}}
+	json.WriteResponse(w, http.StatusOK, response)
 }
 
 // getOrdersPage sends a response to the supplied http response writer containing the requested page of orders, based on the supplied http request.
@@ -213,7 +215,7 @@ func (h *Order) getOrdersPage(w http.ResponseWriter, r *http.Request) {
 	var seek *repository.PageSeekOptions
 	seek, err := utils.GetPageSeekOptions(r, readPageMaxLimit)
 	if err != nil {
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
+		json.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	log.Info(fmt.Sprintf("Selecting %d orders (max %d)...", seek.RecordLimit, readOrdersMaxRecordLimit))
@@ -221,7 +223,7 @@ func (h *Order) getOrdersPage(w http.ResponseWriter, r *http.Request) {
 	orders, err = h.repo.Fetch(seek)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error selecting orders: %s", err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 
@@ -232,8 +234,8 @@ func (h *Order) getOrdersPage(w http.ResponseWriter, r *http.Request) {
 	rangeStr := h.getOrdersRangeStr(w, seek, orders)
 	w.Header().Set("Content-Range", rangeStr)
 	log.Info(fmt.Sprintf("Read %d orders", len(orders)))
-	response := utils.JsonResponse{Data: orders}
-	utils.WriteJSONResponse(w, http.StatusOK, response)
+	response := json.Response{Data: orders}
+	json.WriteResponse(w, http.StatusOK, response)
 }
 
 // partiallyUpdateOrder updates only the specified fields (from the supplied http request) of the order and sends a response in JSON containing the newly updated order.
@@ -244,7 +246,7 @@ func (h *Order) partiallyUpdateOrder(w http.ResponseWriter, r *http.Request, ord
 
 	_, err := models.ValidateOrderUpdate(&order, fields)
 	if err != nil {
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Order "+validationFailedErrMsgPrefix+err.Error())
+		json.WriteErrorResponse(w, http.StatusBadRequest, "Order "+validationFailedErrMsgPrefix+err.Error())
 		return
 	}
 
@@ -252,7 +254,7 @@ func (h *Order) partiallyUpdateOrder(w http.ResponseWriter, r *http.Request, ord
 	updated, err := h.repo.Update(&order, fields)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error partially updating order (id: %d) fields (%s) to %+v: %s", order.ID, fieldsStr, order, err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 	log.Info(fmt.Sprintf("Partially updated order (id: %d) fields (%s): %+v", order.ID, fieldsStr, updated))
@@ -260,7 +262,7 @@ func (h *Order) partiallyUpdateOrder(w http.ResponseWriter, r *http.Request, ord
 	existingItems, err := h.itemsRepo.GetByOrderID(order.ID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		logMsg := fmt.Sprintf("Failed to select existing items: %s", err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 	for _, item := range order.Items {
@@ -273,7 +275,7 @@ func (h *Order) partiallyUpdateOrder(w http.ResponseWriter, r *http.Request, ord
 				_, err := h.itemsRepo.Update(&item, []string{})
 				if err != nil {
 					logMsg := fmt.Sprintf("Error updating item (id: %d): %s", item.ID, err.Error())
-					utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+					json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 					return
 				}
 				break // data assumption: product IDs on items are unique (there is a maximum of 1 item with any given product ID)
@@ -285,15 +287,15 @@ func (h *Order) partiallyUpdateOrder(w http.ResponseWriter, r *http.Request, ord
 			id, err := h.itemsRepo.Create(&item)
 			if err != nil {
 				logMsg := fmt.Sprintf("Error inserting item: %s", err.Error())
-				utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+				json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 				return
 			}
 			item.ID = id
 		}
 	}
 	log.Info(fmt.Sprintf("Updated order's items (id: %d) due to partial update", order.ID))
-	response := utils.JsonResponse{Data: []*models.Order{&order}}
-	utils.WriteJSONResponse(w, http.StatusOK, response)
+	response := json.Response{Data: []*models.Order{&order}}
+	json.WriteResponse(w, http.StatusOK, response)
 }
 
 // fullyUpdateOrder updates all the fields of the order (based on the supplied http request) and sends a response in JSON containing the newly updated order.
@@ -302,7 +304,7 @@ func (h *Order) partiallyUpdateOrder(w http.ResponseWriter, r *http.Request, ord
 func (h *Order) fullyUpdateOrder(w http.ResponseWriter, r *http.Request, order models.Order) {
 	_, err := models.ValidateOrder(&order)
 	if err != nil {
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Order "+validationFailedErrMsgPrefix+err.Error())
+		json.WriteErrorResponse(w, http.StatusBadRequest, "Order "+validationFailedErrMsgPrefix+err.Error())
 		return
 	}
 
@@ -310,7 +312,7 @@ func (h *Order) fullyUpdateOrder(w http.ResponseWriter, r *http.Request, order m
 	updated, err := h.repo.Update(&order, []string{})
 	if err != nil {
 		logMsg := fmt.Sprintf("Error updating order (id: %d): %s", order.ID, err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 	log.Info(fmt.Sprintf("Updated order (id: %d) to %+v", order.ID, updated))
@@ -319,7 +321,7 @@ func (h *Order) fullyUpdateOrder(w http.ResponseWriter, r *http.Request, order m
 	currentItems, err := h.itemsRepo.GetByOrderID(order.ID)
 	if err != nil {
 		logMsg := fmt.Sprintf("Failed to select existing items: %s", err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 	for _, item := range currentItems {
@@ -327,7 +329,7 @@ func (h *Order) fullyUpdateOrder(w http.ResponseWriter, r *http.Request, order m
 		err := h.itemsRepo.Delete(item.ID)
 		if err != nil {
 			logMsg := fmt.Sprintf("Error deleting existing item: %s", err.Error())
-			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+			json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 			return
 		}
 	}
@@ -336,14 +338,14 @@ func (h *Order) fullyUpdateOrder(w http.ResponseWriter, r *http.Request, order m
 		id, err := h.itemsRepo.Create(&item)
 		if err != nil {
 			logMsg := fmt.Sprintf("couldn't create an item for a full order update: %s", err.Error())
-			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+			json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 			return
 		}
 		item.ID = id
 	}
 	log.Info(fmt.Sprintf("Fully updated order (id: %d)", order.ID))
-	response := utils.JsonResponse{Data: []*models.Order{&order}}
-	utils.WriteJSONResponse(w, http.StatusOK, response)
+	response := json.Response{Data: []*models.Order{&order}}
+	json.WriteResponse(w, http.StatusOK, response)
 }
 
 // itemsAreValid validates whether the supplied items are valid.
@@ -411,13 +413,13 @@ func (h *Order) getClientAuthInfo(w http.ResponseWriter, r *http.Request) *model
 	client, err := jwtutils.GetTokenClaims(r, h.jwtRepo)
 	if err != nil {
 		logMsg := unauthorizedErrMsgPrefix + err.Error()
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, unauthorizedErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusBadRequest, unauthorizedErrMsg, logMsg)
 		return nil
 	}
 	_, err = roles.IsValid(client.UserRole)
 	if err != nil {
 		logMsg := unauthorizedErrMsgPrefix + err.Error()
-		utils.WriteJSONErrorResponse(w, http.StatusUnauthorized, unauthorizedErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusUnauthorized, unauthorizedErrMsg, logMsg)
 		return nil
 	}
 	return client
@@ -483,7 +485,7 @@ func (h *Order) clientHasUpdatePermsForOrder(w http.ResponseWriter, r *http.Requ
 	}
 	// Customers can only update their own orders
 	if client.UserRole == roles.Customer && order.OwnerID != client.UserID {
-		utils.WriteJSONErrorResponse(w, http.StatusForbidden, forbiddenUpdateOrderErrMsg)
+		json.WriteErrorResponse(w, http.StatusForbidden, forbiddenUpdateOrderErrMsg)
 		return false
 	}
 	return true
@@ -498,7 +500,7 @@ func (h *Order) clientHasDeletePermsForOrder(w http.ResponseWriter, r *http.Requ
 	}
 	// Customers can only delete their own orders
 	if client.UserRole == roles.Customer && order.OwnerID != client.UserID {
-		utils.WriteJSONErrorResponse(w, http.StatusForbidden, forbiddenDeleteOrderErrMsg)
+		json.WriteErrorResponse(w, http.StatusForbidden, forbiddenDeleteOrderErrMsg)
 		return false
 	}
 	return true
@@ -510,7 +512,7 @@ func (h *Order) getOrdersRangeStr(w http.ResponseWriter, seek *repository.PageSe
 	count, err := h.repo.Count(seek)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error counting orders: %s", err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return ""
 	}
 	startID, endID := uint(0), uint(0)

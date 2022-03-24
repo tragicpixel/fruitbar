@@ -14,7 +14,9 @@ func TestSetupLogger_logger(t *testing.T) {
 	conf := LoggerConfig{
 		Level: InfoLevel,
 	}
-	SetupLogger(conf)
+	if err := SetupLogger(conf); err != nil {
+		t.Errorf("error setting up logger: %s", err.Error())
+	}
 	if getLogger().Level != logrus.Level(InfoLevel) {
 		t.Errorf("expected log level to be %s got %s", logrus.InfoLevel, getLogger().Level)
 	}
@@ -32,7 +34,9 @@ func TestSetupLogger_logger(t *testing.T) {
 	conf = LoggerConfig{
 		ReportCaller: true,
 	}
-	SetupLogger(conf)
+	if err := SetupLogger(conf); err != nil {
+		t.Errorf("error setting up logger: %s", err.Error())
+	}
 	if getLogger().ReportCaller == false {
 		t.Errorf("expected ReportCaller to be %t got %t", true, getLogger().ReportCaller)
 	}
@@ -90,7 +94,9 @@ func TestWriteMsgAllLevels_logger(t *testing.T) {
 	SetLogLevel(PanicLevel)
 	expectedMsg = "level=panic msg=" + testMsg + "\n"
 	defer func() {
-		recover()
+		if err := recover(); err != nil {
+			t.Errorf("error recovering from panic: %s", err)
+		}
 		if buf.String() != expectedMsg {
 			t.Errorf("expected '%s' got '%s'", expectedMsg, buf.String())
 		}

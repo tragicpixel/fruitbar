@@ -11,6 +11,8 @@ import (
 	jwtrepo "github.com/tragicpixel/fruitbar/pkg/repository/jwt"
 	productrepo "github.com/tragicpixel/fruitbar/pkg/repository/product"
 	"github.com/tragicpixel/fruitbar/pkg/utils"
+	httputils "github.com/tragicpixel/fruitbar/pkg/utils/http"
+	"github.com/tragicpixel/fruitbar/pkg/utils/json"
 	jwtutils "github.com/tragicpixel/fruitbar/pkg/utils/jwt"
 	"github.com/tragicpixel/fruitbar/pkg/utils/log"
 
@@ -42,14 +44,14 @@ func (h *Product) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var product models.Product
-	response := *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &product, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
+	response := *json.DecodeAndGetErrorResponse(w, r, &product, json.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
 	if response.Error != nil {
-		utils.WriteJSONErrorResponse(w, response.Error.Code, response.Error.Message)
+		json.WriteErrorResponse(w, response.Error.Code, response.Error.Message)
 		return
 	}
 	_, err := product.IsValid()
 	if err != nil {
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Product "+validationFailedErrMsgPrefix+err.Error())
+		json.WriteErrorResponse(w, http.StatusBadRequest, "Product "+validationFailedErrMsgPrefix+err.Error())
 		return
 	}
 
@@ -57,12 +59,12 @@ func (h *Product) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	createdId, err := h.repo.Create(&product)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error inserting Product: %s", err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 	log.Info(fmt.Sprintf("Created new product (id: %d): %+v", createdId, product))
-	response = utils.JsonResponse{Data: []*models.Product{&product}}
-	utils.WriteJSONResponse(w, http.StatusCreated, response)
+	response = json.Response{Data: []*models.Product{&product}}
+	json.WriteResponse(w, http.StatusCreated, response)
 }
 
 // GetProducts sends a response to the supplied http response writer containing the requested product(s), based on the supplied http request.
@@ -81,9 +83,9 @@ func (h *Product) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var product models.Product
-	response := *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &product, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
+	response := *json.DecodeAndGetErrorResponse(w, r, &product, json.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
 	if response.Error != nil {
-		utils.WriteJSONErrorResponse(w, response.Error.Code, response.Error.Message)
+		json.WriteErrorResponse(w, response.Error.Code, response.Error.Message)
 		return
 	}
 
@@ -100,16 +102,16 @@ func (h *Product) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := utils.GetQueryParamAsUint(r, idParam)
+	id, err := httputils.GetQueryParamAsUint(r, idParam)
 	if err != nil {
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
+		json.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	log.Info(fmt.Sprintf("Selecting items with product id %d for potential delete...", id))
 	existingItems, err := h.itemsRepo.GetByProductID(id)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error reading existing items for product (id: %d): %s", id, err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 	for _, item := range existingItems {
@@ -117,7 +119,7 @@ func (h *Product) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 		err := h.itemsRepo.Delete(item.ID)
 		if err != nil {
 			logMsg := fmt.Sprintf("Error deleting existing item (id: %d): %s", item.ID, err.Error())
-			utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+			json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 			return
 		}
 	}
@@ -127,7 +129,7 @@ func (h *Product) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 	err = h.repo.Delete(id)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error deleting product (id: %d): %s", id, err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 	log.Info(fmt.Sprintf("Successfully deleted product with id = %d.", id))
@@ -136,9 +138,9 @@ func (h *Product) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 
 // getSingleOrder sends a response to the supplied http response writer containing the requested product, based on the supplied http request.
 func (h *Product) getSingleProduct(w http.ResponseWriter, r *http.Request) {
-	id, err := utils.GetQueryParamAsUint(r, idParam)
+	id, err := httputils.GetQueryParamAsUint(r, idParam)
 	if err != nil {
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
+		json.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	log.Info(fmt.Sprintf("Reading product (id: %d)...", id))
@@ -146,19 +148,19 @@ func (h *Product) getSingleProduct(w http.ResponseWriter, r *http.Request) {
 	product, err = h.repo.GetByID(id)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error reading product (id: %d): %s", id, err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 	log.Info(fmt.Sprintf("Read product (id: %d)", id))
-	response := utils.JsonResponse{Data: []*models.Product{product}}
-	utils.WriteJSONResponse(w, http.StatusOK, response)
+	response := json.Response{Data: []*models.Product{product}}
+	json.WriteResponse(w, http.StatusOK, response)
 }
 
 // getProductsPage sends a response to the supplied http response writer containing the requested page of products, based on the supplied http request.
 func (h *Product) getProductsPage(w http.ResponseWriter, r *http.Request) {
 	seek, err := utils.GetPageSeekOptions(r, readPageMaxLimit)
 	if err != nil {
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
+		json.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -167,15 +169,15 @@ func (h *Product) getProductsPage(w http.ResponseWriter, r *http.Request) {
 	products, err = h.repo.Fetch(seek)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error reading products: %s", err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 
 	rangeStr := h.getProductsRangeStr(w, seek, products)
 	w.Header().Set("Content-Range", rangeStr)
 	log.Info(fmt.Sprintf("Read %d products", len(products)))
-	response := utils.JsonResponse{Data: products}
-	utils.WriteJSONResponse(w, http.StatusOK, response)
+	response := json.Response{Data: products}
+	json.WriteResponse(w, http.StatusOK, response)
 }
 
 // partiallyUpdateProduct updates only the specified fields (via http query parameter) of the supplied user
@@ -186,7 +188,7 @@ func (h *Product) partiallyUpdateProduct(w http.ResponseWriter, r *http.Request,
 
 	_, err := product.PartialUpdateIsValid(fields)
 	if err != nil {
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Product "+validationFailedErrMsgPrefix+err.Error())
+		json.WriteErrorResponse(w, http.StatusBadRequest, "Product "+validationFailedErrMsgPrefix+err.Error())
 		return
 	}
 
@@ -194,12 +196,12 @@ func (h *Product) partiallyUpdateProduct(w http.ResponseWriter, r *http.Request,
 	updated, err := h.repo.Update(&product, fields)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error partially updating Product (id: %d)  fields (%s) : %s", product.ID, fieldsStr, err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 	log.Info(fmt.Sprintf("Partially updated Product (id: %d) fields (%s): %+v", product.ID, fieldsStr, updated))
-	response := utils.JsonResponse{Data: []*models.Product{&product}}
-	utils.WriteJSONResponse(w, http.StatusOK, response)
+	response := json.Response{Data: []*models.Product{&product}}
+	json.WriteResponse(w, http.StatusOK, response)
 }
 
 // fullyUpdateProduct updates all of the fields of the supplied product
@@ -207,7 +209,7 @@ func (h *Product) partiallyUpdateProduct(w http.ResponseWriter, r *http.Request,
 func (h *Product) fullyUpdateProduct(w http.ResponseWriter, r *http.Request, product models.Product) {
 	_, err := product.IsValid()
 	if err != nil {
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, "Product "+validationFailedErrMsgPrefix+err.Error())
+		json.WriteErrorResponse(w, http.StatusBadRequest, "Product "+validationFailedErrMsgPrefix+err.Error())
 		return
 	}
 
@@ -215,12 +217,12 @@ func (h *Product) fullyUpdateProduct(w http.ResponseWriter, r *http.Request, pro
 	updated, err := h.repo.Update(&product, []string{})
 	if err != nil {
 		logMsg := fmt.Sprintf("Error fully updating Product with id = %d: %+v: %s", product.ID, product, err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
 	log.Info(fmt.Sprintf("Fully updated Product (id: %d): %+v", product.ID, updated))
-	response := utils.JsonResponse{Data: []*models.Product{&product}}
-	utils.WriteJSONResponse(w, http.StatusOK, response)
+	response := json.Response{Data: []*models.Product{&product}}
+	json.WriteResponse(w, http.StatusOK, response)
 }
 
 // getClientAuthInfo returns the authorization information about the client based on the supplied http request.
@@ -229,13 +231,13 @@ func (h *Product) getClientAuthInfo(w http.ResponseWriter, r *http.Request) *mod
 	client, err := jwtutils.GetTokenClaims(r, h.jwtRepo)
 	if err != nil {
 		logMsg := unauthorizedErrMsgPrefix + err.Error()
-		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, unauthorizedErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusBadRequest, unauthorizedErrMsg, logMsg)
 		return nil
 	}
 	_, err = roles.IsValid(client.UserRole)
 	if err != nil {
 		logMsg := unauthorizedErrMsgPrefix + err.Error()
-		utils.WriteJSONErrorResponse(w, http.StatusUnauthorized, unauthorizedErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusUnauthorized, unauthorizedErrMsg, logMsg)
 		return nil
 	}
 	return client
@@ -294,7 +296,7 @@ func (h *Product) getProductsRangeStr(w http.ResponseWriter, seek *repository.Pa
 	count, err := h.repo.Count(seek)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error counting products: %s", err.Error())
-		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return ""
 	}
 	startID, endID := uint(0), uint(0)

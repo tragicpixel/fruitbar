@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/tragicpixel/fruitbar/pkg/repository"
+	httputils "github.com/tragicpixel/fruitbar/pkg/utils/http"
 )
 
 // GetPageSeekOptionsByName gets the page seek options for the supplied http request and maximum record limit, using the supplied names for the query parameters.
@@ -21,13 +22,13 @@ func GetPageSeekOptionsByName(r *http.Request, beforeIdParam string, afterIdPara
 	}
 
 	if afterIdIsSet {
-		opts.StartId, err = GetQueryParamAsUint(r, afterIdParam)
+		opts.StartId, err = httputils.GetQueryParamAsUint(r, afterIdParam)
 		if err != nil {
 			return nil, err
 		}
 		opts.Direction = repository.SeekDirectionAfter
 	} else if beforeIdIsSet {
-		opts.StartId, err = GetQueryParamAsUint(r, beforeIdParam)
+		opts.StartId, err = httputils.GetQueryParamAsUint(r, beforeIdParam)
 		if err != nil {
 			return nil, err
 		}
@@ -38,7 +39,7 @@ func GetPageSeekOptionsByName(r *http.Request, beforeIdParam string, afterIdPara
 
 	opts.RecordLimit = limitMax
 	if r.URL.Query().Has(limitParam) {
-		opts.RecordLimit, err = GetQueryParamAsInt(r, limitParam)
+		opts.RecordLimit, err = httputils.GetQueryParamAsInt(r, limitParam)
 		if err != nil {
 			return nil, err
 		}
@@ -51,7 +52,13 @@ func GetPageSeekOptionsByName(r *http.Request, beforeIdParam string, afterIdPara
 	return opts, nil
 }
 
+const (
+	beforeIdParamName = "before_id"
+	afterIdParamName  = "after_id"
+	limitParamName    = "limit"
+)
+
 // GetPageSeekOptions returns the page seek options for the supplied http request and maximum record limit using standardized names for the query parameters.
 func GetPageSeekOptions(r *http.Request, maxLimit int) (opts *repository.PageSeekOptions, err error) {
-	return GetPageSeekOptionsByName(r, "before_id", "after_id", "limit", maxLimit)
+	return GetPageSeekOptionsByName(r, beforeIdParamName, afterIdParamName, limitParamName, maxLimit)
 }

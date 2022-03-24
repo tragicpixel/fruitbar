@@ -7,13 +7,13 @@ import (
 	"github.com/tragicpixel/fruitbar/pkg/models"
 	"github.com/tragicpixel/fruitbar/pkg/models/roles"
 	"github.com/tragicpixel/fruitbar/pkg/utils"
+	"github.com/tragicpixel/fruitbar/pkg/utils/log"
 
 	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/sirupsen/logrus"
 )
 
 // ProductsService holds all the pieces necessary to run the product listing service for the fruitbar application.
@@ -258,17 +258,17 @@ func (s *ProductsService) NewProductsServiceRouter(db *driver.DB) *mux.Router {
 // Always returns HTTP Status OK, even if the health check fails.
 func (s *ProductsService) CheckHealth(w http.ResponseWriter, r *http.Request) {
 	var err error
-	logrus.Info("Checking products service health...")
+	log.Info("Checking products service health...")
 	db, err := s.DB.Postgres.DB()
 	if err != nil {
-		logrus.Error("products service health check failed: Error getting SQLDB from gorm DB: " + err.Error())
+		log.Error("products service health check failed: Error getting SQLDB from gorm DB: " + err.Error())
 		utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": false})
 	} else {
 		if err = db.Ping(); err != nil {
-			logrus.Error("products service health check failed: error pinging the database: " + err.Error())
+			log.Error("products service health check failed: error pinging the database: " + err.Error())
 			utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": false})
 		} else {
-			logrus.Info("products service health check passed")
+			log.Info("products service health check passed")
 			utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": true})
 		}
 	}
@@ -277,13 +277,13 @@ func (s *ProductsService) CheckHealth(w http.ResponseWriter, r *http.Request) {
 // SetupOrdersServiceDB checks that the database schema is ready for the authentication service.
 // If init is true, will create the tables if they do not already exist.
 func setupProductsServiceDB(db *driver.DB, init bool) error {
-	logrus.Info("Setting up the products service database...")
+	log.Info("Setting up the products service database...")
 	err := pgdriver.SetupTables(db, &models.Product{}, init)
 	if err != nil {
 		msg := "failed to set up the Product model table" + err.Error()
-		logrus.Error(msg)
+		log.Error(msg)
 		return errors.New(msg)
 	}
-	logrus.Info("Successfully set up the database for the products service")
+	log.Info("Successfully set up the database for the products service")
 	return nil
 }

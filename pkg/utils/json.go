@@ -1,8 +1,6 @@
 package utils
 
 import (
-	"github.com/sirupsen/logrus"
-
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/golang/gddo/httputil/header"
+	"github.com/tragicpixel/fruitbar/pkg/utils/log"
 )
 
 const (
@@ -84,11 +83,11 @@ func WriteJSONResponse(w http.ResponseWriter, status int, response interface{}) 
 	w.Header().Set("Content-Type", "application/json")
 	err := json.NewEncoder(w).Encode(response)
 	if err != nil {
-		logrus.Error(fmt.Sprintf("failed to encode json: %s", err.Error()))
+		log.Error(fmt.Sprintf("failed to encode json: %s", err.Error()))
 		w.WriteHeader(http.StatusInternalServerError)
 		_, err = w.Write([]byte("\n"))
 		if err != nil { // there was en error writing to the page
-			logrus.Error(fmt.Sprintf("failed to write: %s", err.Error()))
+			log.Error(fmt.Sprintf("failed to write: %s", err.Error()))
 		}
 	}
 }
@@ -178,9 +177,9 @@ func NewJsonResponseWithError(code int, msg string) JsonResponse {
 
 func WriteJSONErrorResponse(w http.ResponseWriter, status int, errMsg string, logMsg ...string) {
 	if logMsg != nil {
-		logrus.Error(logMsg)
+		log.Error(logMsg)
 	} else {
-		logrus.Error(errMsg)
+		log.Error(errMsg)
 	}
 	r := JsonResponse{Error: &JsonErrorResponse{Code: status, Message: errMsg}}
 	WriteJSONResponse(w, r.Error.Code, r)

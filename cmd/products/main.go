@@ -7,8 +7,7 @@ import (
 
 	pgdriver "github.com/tragicpixel/fruitbar/pkg/driver/postgres"
 	"github.com/tragicpixel/fruitbar/pkg/service"
-
-	"github.com/sirupsen/logrus"
+	"github.com/tragicpixel/fruitbar/pkg/utils/log"
 )
 
 const (
@@ -22,8 +21,11 @@ const (
 )
 
 func main() {
-	// Configure logging
-	logrus.SetFormatter(&logrus.JSONFormatter{})
+	loggerConfig := log.LoggerConfig{
+		Level:  log.InfoLevel,
+		Format: log.JSONFormat,
+	}
+	log.SetupLogger(loggerConfig)
 
 	// Configure the service
 	config := service.ProductsServiceConfig{
@@ -42,9 +44,9 @@ func main() {
 	FruitBarProductsService, err := service.NewProductsService(&config)
 	if err != nil {
 		msg := "failed to create the products service:"
-		logrus.Error(msg + err.Error())
+		log.Error(msg + err.Error())
 		panic(msg + err.Error())
 	}
-	logrus.Info("Server listening at port ", FruitBarProductsService.Port)
-	logrus.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", FruitBarProductsService.Port), FruitBarProductsService.Router))
+	log.Info("Server listening at port ", FruitBarProductsService.Port)
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", FruitBarProductsService.Port), FruitBarProductsService.Router))
 }

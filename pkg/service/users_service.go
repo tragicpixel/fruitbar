@@ -6,13 +6,13 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/sirupsen/logrus"
 	"github.com/tragicpixel/fruitbar/pkg/driver"
 	pgdriver "github.com/tragicpixel/fruitbar/pkg/driver/postgres"
 	"github.com/tragicpixel/fruitbar/pkg/handler"
 	"github.com/tragicpixel/fruitbar/pkg/models"
 	"github.com/tragicpixel/fruitbar/pkg/models/roles"
 	"github.com/tragicpixel/fruitbar/pkg/utils"
+	"github.com/tragicpixel/fruitbar/pkg/utils/log"
 )
 
 // UsersService holds all the pieces necessary to run the authentication service for the fruitbar application.
@@ -306,31 +306,31 @@ func (s *UsersService) NewUsersServiceRouter(db *driver.DB) *mux.Router {
 // SetupUsersServiceDB checks that the database schema is ready for the authentication service.
 // If init is true, will create the tables if they do not already exist.
 func SetupUsersServiceDB(db *driver.DB, init bool) error {
-	logrus.Info("Setting up the users service database...")
+	log.Info("Setting up the users service database...")
 	err := pgdriver.SetupTables(db, &models.User{}, init)
 	if err != nil {
-		logrus.Error("failed to set up the User model table" + err.Error())
+		log.Error("failed to set up the User model table" + err.Error())
 		return errors.New("failed to set up the User model table: " + err.Error())
 	}
-	logrus.Info("Successfully set up the database for the users service")
+	log.Info("Successfully set up the database for the users service")
 	return nil
 }
 
 // CheckHealth checks the health of the authentication service and writes a response in JSON to the user.
 func (s *UsersService) CheckHealth(w http.ResponseWriter, r *http.Request) {
 	var err error
-	logrus.Info("Checking users service health...")
+	log.Info("Checking users service health...")
 	db, err := s.DB.Postgres.DB()
 	if err != nil {
-		logrus.Error("health check failed: Error getting SQLDB from gorm DB: " + err.Error())
+		log.Error("health check failed: Error getting SQLDB from gorm DB: " + err.Error())
 		utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": false})
 		return
 	}
 	if err = db.Ping(); err != nil {
-		logrus.Error("health check failed: error pinging the database: " + err.Error())
+		log.Error("health check failed: error pinging the database: " + err.Error())
 		utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": false})
 		return
 	}
-	logrus.Info("health check passed")
+	log.Info("health check passed")
 	utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": true})
 }

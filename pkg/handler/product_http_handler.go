@@ -12,11 +12,10 @@ import (
 	productrepo "github.com/tragicpixel/fruitbar/pkg/repository/product"
 	"github.com/tragicpixel/fruitbar/pkg/utils"
 	jwtutils "github.com/tragicpixel/fruitbar/pkg/utils/jwt"
+	"github.com/tragicpixel/fruitbar/pkg/utils/log"
 
 	"fmt"
 	"net/http"
-
-	"github.com/sirupsen/logrus"
 )
 
 // Product represents a handler for performing operations on products via HTTP.
@@ -54,14 +53,14 @@ func (h *Product) CreateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logrus.Info(fmt.Sprintf("Inserting new Product: %+v", product))
+	log.Info(fmt.Sprintf("Inserting new Product: %+v", product))
 	createdId, err := h.repo.Create(&product)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error inserting Product: %s", err.Error())
 		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
-	logrus.Info(fmt.Sprintf("Created new product (id: %d): %+v", createdId, product))
+	log.Info(fmt.Sprintf("Created new product (id: %d): %+v", createdId, product))
 	response = utils.JsonResponse{Data: []*models.Product{&product}}
 	utils.WriteJSONResponse(w, http.StatusCreated, response)
 }
@@ -106,7 +105,7 @@ func (h *Product) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	logrus.Info(fmt.Sprintf("Selecting items with product id %d for potential delete...", id))
+	log.Info(fmt.Sprintf("Selecting items with product id %d for potential delete...", id))
 	existingItems, err := h.itemsRepo.GetByProductID(id)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error reading existing items for product (id: %d): %s", id, err.Error())
@@ -114,7 +113,7 @@ func (h *Product) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, item := range existingItems {
-		logrus.Info(fmt.Sprintf("Deleting existing item (id: %d) from product (id: %d)", item.ID, id))
+		log.Info(fmt.Sprintf("Deleting existing item (id: %d) from product (id: %d)", item.ID, id))
 		err := h.itemsRepo.Delete(item.ID)
 		if err != nil {
 			logMsg := fmt.Sprintf("Error deleting existing item (id: %d): %s", item.ID, err.Error())
@@ -122,16 +121,16 @@ func (h *Product) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	logrus.Info(fmt.Sprintf("Deleted all items for product (id: %d)", id))
+	log.Info(fmt.Sprintf("Deleted all items for product (id: %d)", id))
 
-	logrus.Info(fmt.Sprintf("Deleting product (id: %d)...", id))
+	log.Info(fmt.Sprintf("Deleting product (id: %d)...", id))
 	err = h.repo.Delete(id)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error deleting product (id: %d): %s", id, err.Error())
 		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
-	logrus.Info(fmt.Sprintf("Successfully deleted product with id = %d.", id))
+	log.Info(fmt.Sprintf("Successfully deleted product with id = %d.", id))
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -142,7 +141,7 @@ func (h *Product) getSingleProduct(w http.ResponseWriter, r *http.Request) {
 		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	logrus.Info(fmt.Sprintf("Reading product (id: %d)...", id))
+	log.Info(fmt.Sprintf("Reading product (id: %d)...", id))
 	var product *models.Product
 	product, err = h.repo.GetByID(id)
 	if err != nil {
@@ -150,7 +149,7 @@ func (h *Product) getSingleProduct(w http.ResponseWriter, r *http.Request) {
 		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
-	logrus.Info(fmt.Sprintf("Read product (id: %d)", id))
+	log.Info(fmt.Sprintf("Read product (id: %d)", id))
 	response := utils.JsonResponse{Data: []*models.Product{product}}
 	utils.WriteJSONResponse(w, http.StatusOK, response)
 }
@@ -163,7 +162,7 @@ func (h *Product) getProductsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logrus.Info(fmt.Sprintf("Reading %d products (max %d)...", seek.RecordLimit, readPageMaxLimit))
+	log.Info(fmt.Sprintf("Reading %d products (max %d)...", seek.RecordLimit, readPageMaxLimit))
 	var products []*models.Product
 	products, err = h.repo.Fetch(seek)
 	if err != nil {
@@ -174,7 +173,7 @@ func (h *Product) getProductsPage(w http.ResponseWriter, r *http.Request) {
 
 	rangeStr := h.getProductsRangeStr(w, seek, products)
 	w.Header().Set("Content-Range", rangeStr)
-	logrus.Info(fmt.Sprintf("Read %d products", len(products)))
+	log.Info(fmt.Sprintf("Read %d products", len(products)))
 	response := utils.JsonResponse{Data: products}
 	utils.WriteJSONResponse(w, http.StatusOK, response)
 }
@@ -191,14 +190,14 @@ func (h *Product) partiallyUpdateProduct(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	logrus.Info(fmt.Sprintf("Updating Product (id: %d) fields (%s) to %+v", product.ID, fieldsStr, product))
+	log.Info(fmt.Sprintf("Updating Product (id: %d) fields (%s) to %+v", product.ID, fieldsStr, product))
 	updated, err := h.repo.Update(&product, fields)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error partially updating Product (id: %d)  fields (%s) : %s", product.ID, fieldsStr, err.Error())
 		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
-	logrus.Info(fmt.Sprintf("Partially updated Product (id: %d) fields (%s): %+v", product.ID, fieldsStr, updated))
+	log.Info(fmt.Sprintf("Partially updated Product (id: %d) fields (%s): %+v", product.ID, fieldsStr, updated))
 	response := utils.JsonResponse{Data: []*models.Product{&product}}
 	utils.WriteJSONResponse(w, http.StatusOK, response)
 }
@@ -212,14 +211,14 @@ func (h *Product) fullyUpdateProduct(w http.ResponseWriter, r *http.Request, pro
 		return
 	}
 
-	logrus.Info(fmt.Sprintf("Updating Product (id: %d) to %+v", product.ID, product))
+	log.Info(fmt.Sprintf("Updating Product (id: %d) to %+v", product.ID, product))
 	updated, err := h.repo.Update(&product, []string{})
 	if err != nil {
 		logMsg := fmt.Sprintf("Error fully updating Product with id = %d: %+v: %s", product.ID, product, err.Error())
 		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
-	logrus.Info(fmt.Sprintf("Fully updated Product (id: %d): %+v", product.ID, updated))
+	log.Info(fmt.Sprintf("Fully updated Product (id: %d): %+v", product.ID, updated))
 	response := utils.JsonResponse{Data: []*models.Product{&product}}
 	utils.WriteJSONResponse(w, http.StatusOK, response)
 }
@@ -289,7 +288,7 @@ func (h *Product) clientHasDeletePerms(w http.ResponseWriter, r *http.Request) b
 
 // getProductsRangeStr returns a string representation of the range of the supplied products.
 func (h *Product) getProductsRangeStr(w http.ResponseWriter, seek *repository.PageSeekOptions, products []*models.Product) string {
-	logrus.Info("Counting products...")
+	log.Info("Counting products...")
 	// TODO: Cache this count value and update every X seconds, so we don't need to perform a full count on every page read.
 	// TODO: I want a full count here, but I think this is just returning the number of total records based on this seek, not the total # of orders.
 	count, err := h.repo.Count(seek)

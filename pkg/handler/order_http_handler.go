@@ -14,12 +14,11 @@ import (
 	productsrepo "github.com/tragicpixel/fruitbar/pkg/repository/product"
 	"github.com/tragicpixel/fruitbar/pkg/utils"
 	jwtutils "github.com/tragicpixel/fruitbar/pkg/utils/jwt"
+	"github.com/tragicpixel/fruitbar/pkg/utils/log"
 	"gorm.io/gorm"
 
 	"fmt"
 	"net/http"
-
-	"github.com/sirupsen/logrus"
 )
 
 // Order represents a handler for performing operations on orders via HTTP.
@@ -74,7 +73,7 @@ func (h *Order) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	order.Tax = order.Subtotal * order.TaxRate
 	order.Total = order.Subtotal + order.Tax
 
-	logrus.Info("Inserting new order...")
+	log.Info("Inserting new order...")
 	createdID, itemIds, err := h.repo.Create(&order)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error inserting order %+v into database: %s", order, err.Error())
@@ -86,7 +85,7 @@ func (h *Order) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	for _, id := range itemIds {
 		update := models.Item{OrderID: createdID}
 		update.ID = id
-		logrus.Info(fmt.Sprintf("Updating item (id: %d) for order (id: %d)", id, order.ID))
+		log.Info(fmt.Sprintf("Updating item (id: %d) for order (id: %d)", id, order.ID))
 		_, err := h.itemsRepo.Update(&update, []string{"orderid", "id"})
 		if err != nil {
 			logMsg := fmt.Sprintf("Error updating item (id: %d) for order (id: %d): %s", id, order.ID, err.Error())
@@ -94,7 +93,7 @@ func (h *Order) CreateOrder(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	logrus.Info(fmt.Sprintf("Created new order (id: %d): %+v", createdID, order))
+	log.Info(fmt.Sprintf("Created new order (id: %d): %+v", createdID, order))
 	response = utils.JsonResponse{Data: []*models.Order{&order}}
 	utils.WriteJSONResponse(w, http.StatusCreated, response)
 }
@@ -141,7 +140,7 @@ func (h *Order) DeleteOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logrus.Info(fmt.Sprintf("Reading order (id: %d) for proposed deletion...", id))
+	log.Info(fmt.Sprintf("Reading order (id: %d) for proposed deletion...", id))
 	order, err := h.repo.GetByID(id)
 	if err != nil {
 		logMsg := "Error reading order for proposed deletion: " + err.Error()
@@ -153,7 +152,7 @@ func (h *Order) DeleteOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logrus.Info(fmt.Sprintf("Reading items for order (id: %d) for proposed deletion...", id))
+	log.Info(fmt.Sprintf("Reading items for order (id: %d) for proposed deletion...", id))
 	existingItems, err := h.itemsRepo.GetByOrderID(id)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error reading existing items for order (id: %d): %s", id, err.Error())
@@ -161,7 +160,7 @@ func (h *Order) DeleteOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, item := range existingItems {
-		logrus.Info(fmt.Sprintf("Deleting existing item (id: %d) from order (id: %d)", item.ID, id))
+		log.Info(fmt.Sprintf("Deleting existing item (id: %d) from order (id: %d)", item.ID, id))
 		err := h.itemsRepo.Delete(item.ID)
 		if err != nil {
 			logMsg := fmt.Sprintf("Error deleting existing item (id: %d): %s", item.ID, err.Error())
@@ -169,15 +168,15 @@ func (h *Order) DeleteOrder(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	logrus.Info(fmt.Sprintf("Deleted all items for order (id: %d)", id))
-	logrus.Info(fmt.Sprintf("Deleting order (id: %d)..., ", id))
+	log.Info(fmt.Sprintf("Deleted all items for order (id: %d)", id))
+	log.Info(fmt.Sprintf("Deleting order (id: %d)..., ", id))
 	err = h.repo.Delete(id)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error deleting order (id %d): %s", id, err.Error())
 		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
-	logrus.Info(fmt.Sprintf("Deleted order (id: %d)", id))
+	log.Info(fmt.Sprintf("Deleted order (id: %d)", id))
 
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -190,7 +189,7 @@ func (h *Order) getSingleOrder(w http.ResponseWriter, r *http.Request) {
 		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	logrus.Info(fmt.Sprintf("Selecting order with id %d...", id))
+	log.Info(fmt.Sprintf("Selecting order with id %d...", id))
 	var order *models.Order
 	order, err = h.repo.GetByID(id)
 	if err != nil {
@@ -198,7 +197,7 @@ func (h *Order) getSingleOrder(w http.ResponseWriter, r *http.Request) {
 		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
-	logrus.Info(fmt.Sprintf("Successfully selected order with id = %d", id))
+	log.Info(fmt.Sprintf("Successfully selected order with id = %d", id))
 
 	if !h.clientHasReadPermsForOrder(w, r, order) {
 		return
@@ -217,7 +216,7 @@ func (h *Order) getOrdersPage(w http.ResponseWriter, r *http.Request) {
 		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	logrus.Info(fmt.Sprintf("Selecting %d orders (max %d)...", seek.RecordLimit, readOrdersMaxRecordLimit))
+	log.Info(fmt.Sprintf("Selecting %d orders (max %d)...", seek.RecordLimit, readOrdersMaxRecordLimit))
 	var orders []*models.Order
 	orders, err = h.repo.Fetch(seek)
 	if err != nil {
@@ -232,7 +231,7 @@ func (h *Order) getOrdersPage(w http.ResponseWriter, r *http.Request) {
 
 	rangeStr := h.getOrdersRangeStr(w, seek, orders)
 	w.Header().Set("Content-Range", rangeStr)
-	logrus.Info(fmt.Sprintf("Read %d orders", len(orders)))
+	log.Info(fmt.Sprintf("Read %d orders", len(orders)))
 	response := utils.JsonResponse{Data: orders}
 	utils.WriteJSONResponse(w, http.StatusOK, response)
 }
@@ -249,14 +248,14 @@ func (h *Order) partiallyUpdateOrder(w http.ResponseWriter, r *http.Request, ord
 		return
 	}
 
-	logrus.Info(fmt.Sprintf("Updating order (id: %d) fields (%s) to %+v", order.ID, fieldsStr, order))
+	log.Info(fmt.Sprintf("Updating order (id: %d) fields (%s) to %+v", order.ID, fieldsStr, order))
 	updated, err := h.repo.Update(&order, fields)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error partially updating order (id: %d) fields (%s) to %+v: %s", order.ID, fieldsStr, order, err.Error())
 		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
-	logrus.Info(fmt.Sprintf("Partially updated order (id: %d) fields (%s): %+v", order.ID, fieldsStr, updated))
+	log.Info(fmt.Sprintf("Partially updated order (id: %d) fields (%s): %+v", order.ID, fieldsStr, updated))
 
 	existingItems, err := h.itemsRepo.GetByOrderID(order.ID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -270,7 +269,7 @@ func (h *Order) partiallyUpdateOrder(w http.ResponseWriter, r *http.Request, ord
 			if item.ProductID == existingItem.ProductID {
 				match = true
 				item.ID = existingItem.ID
-				logrus.Info(fmt.Sprintf("Updating item (id: %d) to %+v", item.ID, item))
+				log.Info(fmt.Sprintf("Updating item (id: %d) to %+v", item.ID, item))
 				_, err := h.itemsRepo.Update(&item, []string{})
 				if err != nil {
 					logMsg := fmt.Sprintf("Error updating item (id: %d): %s", item.ID, err.Error())
@@ -281,7 +280,7 @@ func (h *Order) partiallyUpdateOrder(w http.ResponseWriter, r *http.Request, ord
 			}
 		}
 		if !match {
-			logrus.Info(fmt.Sprintf("Inserting new item: %+v", item))
+			log.Info(fmt.Sprintf("Inserting new item: %+v", item))
 			item.OrderID = order.ID
 			id, err := h.itemsRepo.Create(&item)
 			if err != nil {
@@ -292,7 +291,7 @@ func (h *Order) partiallyUpdateOrder(w http.ResponseWriter, r *http.Request, ord
 			item.ID = id
 		}
 	}
-	logrus.Info(fmt.Sprintf("Updated order's items (id: %d) due to partial update", order.ID))
+	log.Info(fmt.Sprintf("Updated order's items (id: %d) due to partial update", order.ID))
 	response := utils.JsonResponse{Data: []*models.Order{&order}}
 	utils.WriteJSONResponse(w, http.StatusOK, response)
 }
@@ -307,16 +306,16 @@ func (h *Order) fullyUpdateOrder(w http.ResponseWriter, r *http.Request, order m
 		return
 	}
 
-	logrus.Info(fmt.Sprintf("Updating order (id: %d) to %+v", order.ID, order))
+	log.Info(fmt.Sprintf("Updating order (id: %d) to %+v", order.ID, order))
 	updated, err := h.repo.Update(&order, []string{})
 	if err != nil {
 		logMsg := fmt.Sprintf("Error updating order (id: %d): %s", order.ID, err.Error())
 		utils.WriteJSONErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
 	}
-	logrus.Info(fmt.Sprintf("Updated order (id: %d) to %+v", order.ID, updated))
+	log.Info(fmt.Sprintf("Updated order (id: %d) to %+v", order.ID, updated))
 
-	logrus.Info(fmt.Sprintf("Selecting existing items for order (id: %d", order.ID))
+	log.Info(fmt.Sprintf("Selecting existing items for order (id: %d", order.ID))
 	currentItems, err := h.itemsRepo.GetByOrderID(order.ID)
 	if err != nil {
 		logMsg := fmt.Sprintf("Failed to select existing items: %s", err.Error())
@@ -324,7 +323,7 @@ func (h *Order) fullyUpdateOrder(w http.ResponseWriter, r *http.Request, order m
 		return
 	}
 	for _, item := range currentItems {
-		logrus.Info(fmt.Sprintf("Deleting existing item (id: %d) from order (id: %d)...", item.ID, order.ID))
+		log.Info(fmt.Sprintf("Deleting existing item (id: %d) from order (id: %d)...", item.ID, order.ID))
 		err := h.itemsRepo.Delete(item.ID)
 		if err != nil {
 			logMsg := fmt.Sprintf("Error deleting existing item: %s", err.Error())
@@ -333,7 +332,7 @@ func (h *Order) fullyUpdateOrder(w http.ResponseWriter, r *http.Request, order m
 		}
 	}
 	for _, item := range order.Items {
-		logrus.Info(fmt.Sprintf("Inserting new item for order (id: %d)...", order.ID))
+		log.Info(fmt.Sprintf("Inserting new item for order (id: %d)...", order.ID))
 		id, err := h.itemsRepo.Create(&item)
 		if err != nil {
 			logMsg := fmt.Sprintf("couldn't create an item for a full order update: %s", err.Error())
@@ -342,7 +341,7 @@ func (h *Order) fullyUpdateOrder(w http.ResponseWriter, r *http.Request, order m
 		}
 		item.ID = id
 	}
-	logrus.Info(fmt.Sprintf("Fully updated order (id: %d)", order.ID))
+	log.Info(fmt.Sprintf("Fully updated order (id: %d)", order.ID))
 	response := utils.JsonResponse{Data: []*models.Order{&order}}
 	utils.WriteJSONResponse(w, http.StatusOK, response)
 }
@@ -365,7 +364,7 @@ func (h *Order) validateProductIDs(items []models.Item) (bool, error) {
 	ids := make(map[uint]bool, len(items))
 	for _, item := range items {
 		// TODO: Rewrite this so that only one database call is made -> modify Exists() to take var args and send all the IDs at once
-		logrus.Info(fmt.Sprintf("Checking if a product with ID = %d exists", item.ProductID))
+		log.Info(fmt.Sprintf("Checking if a product with ID = %d exists", item.ProductID))
 		exists, err := h.productsRepo.Exists(item.ProductID)
 		if err != nil {
 			return false, errors.New("failed to validate product id: " + err.Error())
@@ -396,7 +395,7 @@ func (h *Order) quantityIsValid(items []models.Item) (bool, error) {
 func (h *Order) calculateOrderSubtotal(order *models.Order) (float64, error) {
 	subtotal := float64(0)
 	for _, item := range order.Items {
-		logrus.Info(fmt.Sprintf("Selecting product (id: %d) to get price...", item.ProductID))
+		log.Info(fmt.Sprintf("Selecting product (id: %d) to get price...", item.ProductID))
 		product, err := h.productsRepo.GetByID(item.ProductID)
 		if err != nil {
 			return -1, err
@@ -507,7 +506,7 @@ func (h *Order) clientHasDeletePermsForOrder(w http.ResponseWriter, r *http.Requ
 
 // getUsersRangeStr returns a string representation of the range of the supplied orders.
 func (h *Order) getOrdersRangeStr(w http.ResponseWriter, seek *repository.PageSeekOptions, orders []*models.Order) string {
-	logrus.Info("Counting orders...")
+	log.Info("Counting orders...")
 	count, err := h.repo.Count(seek)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error counting orders: %s", err.Error())

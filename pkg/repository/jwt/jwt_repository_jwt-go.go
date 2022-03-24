@@ -7,9 +7,9 @@ import (
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
-	"github.com/sirupsen/logrus"
 	"github.com/tragicpixel/fruitbar/pkg/models"
 	"github.com/tragicpixel/fruitbar/pkg/repository"
+	"github.com/tragicpixel/fruitbar/pkg/utils/log"
 )
 
 // JWTRepository represents a repository of JSON Web Tokens.
@@ -30,7 +30,7 @@ func (r *JWTRepository) GenerateToken(j *models.JwtWrapper, u *models.User) (sig
 		UserName: u.Name,
 		UserRole: u.Role,
 	}
-	logrus.Info(fmt.Sprintf("Generated token with user id %d and role %s", claims.UserID, claims.UserRole))
+	log.Info(fmt.Sprintf("Generated token with user id %d and role %s", claims.UserID, claims.UserRole))
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	signedToken, err = token.SignedString([]byte(j.SecretKey))
 	if err != nil {

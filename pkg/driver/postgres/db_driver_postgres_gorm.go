@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/sirupsen/logrus"
 	"github.com/tragicpixel/fruitbar/pkg/driver"
+	"github.com/tragicpixel/fruitbar/pkg/utils/log"
 	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -18,13 +18,13 @@ func OpenConnection(connectionConfig *PostgresConnectionConfig) (*driver.DB, err
 	dbinfo := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable",
 		connectionConfig.Host, connectionConfig.Username, connectionConfig.Password, connectionConfig.Database,
 	)
-	logrus.Info("Opening connection to database: " + dbinfo) // may not want to include user credentials in the log file
+	log.Info("Opening connection to database: " + dbinfo) // may not want to include user credentials in the log file
 	conn, err := gorm.Open(postgres.Open(dbinfo), &gorm.Config{Logger: zaplogger})
 	if err != nil {
-		logrus.Error("Error opening database connection: " + err.Error())
+		log.Error("Error opening database connection: " + err.Error())
 		return nil, err
 	}
-	logrus.Info("Successfully opened connection to the database.")
+	log.Info("Successfully opened connection to the database.")
 	db := driver.DB{Postgres: conn}
 	return &db, nil
 }
@@ -36,31 +36,31 @@ func SetupTables(db *driver.DB, object interface{}, init bool) error {
 	err := stmt.Parse(object)
 	if err != nil {
 		msg := fmt.Sprintf("Failed to parse object %+v: %s", object, err.Error())
-		logrus.Error(msg)
+		log.Error(msg)
 		return errors.New(msg)
 	}
 	tableName := stmt.Schema.Table
 	if !db.Postgres.Migrator().HasTable(object) { // This will also pick up on if the schema in the DB does not match gorm's data model (based on the code)
-		logrus.Info("Table not found: " + tableName)
+		log.Info("Table not found: " + tableName)
 		if init {
 			// If the table exists, but not for the parsed object, this means the schema has changed, so drop the table.
 			// In a real production application, you probably wouldn't want to do this and instead just fail outright, or perform some kind of data migration instead.
 			err := db.Postgres.Migrator().DropTable(object)
 			if err != nil {
 				msg := fmt.Sprintf("Failed to drop table %s: %s", tableName, err.Error())
-				logrus.Error(msg)
+				log.Error(msg)
 				return errors.New(msg)
 			}
 			err = db.Postgres.Migrator().CreateTable(object)
 			if err != nil {
 				msg := fmt.Sprintf("Failed to create table %s: %s", tableName, err.Error())
-				logrus.Error(msg)
+				log.Error(msg)
 				return errors.New(msg)
 			}
-			logrus.Info("Created table: " + tableName)
+			log.Info("Created table: " + tableName)
 		} else {
 			msg := "Couldn't find table " + tableName
-			logrus.Error(msg)
+			log.Error(msg)
 			return errors.New(msg)
 		}
 	}

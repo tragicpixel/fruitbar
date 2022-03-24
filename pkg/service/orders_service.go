@@ -6,13 +6,13 @@ import (
 	"github.com/tragicpixel/fruitbar/pkg/handler"
 	"github.com/tragicpixel/fruitbar/pkg/models"
 	"github.com/tragicpixel/fruitbar/pkg/utils"
+	"github.com/tragicpixel/fruitbar/pkg/utils/log"
 
 	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/sirupsen/logrus"
 )
 
 // OrdersService holds all the pieces necessary to run the data entry service for the fruitbar application.
@@ -259,20 +259,20 @@ func (s *OrdersService) NewOrdersServiceRouter(db *driver.DB) *mux.Router {
 // SetupOrdersServiceDB checks that the database schema is ready for the authentication service.
 // If init is true, will create the tables if they do not already exist.
 func setupOrdersServiceDB(db *driver.DB, init bool) error {
-	logrus.Info("Setting up the orders service database...")
+	log.Info("Setting up the orders service database...")
 	err := pgdriver.SetupTables(db, &models.Order{}, init)
 	if err != nil {
 		msg := "failed to set up the Orders model table" + err.Error()
-		logrus.Error(msg)
+		log.Error(msg)
 		return errors.New(msg)
 	}
 	err = pgdriver.SetupTables(db, &models.Item{}, init)
 	if err != nil {
 		msg := "failed to set up the Items model table" + err.Error()
-		logrus.Error(msg)
+		log.Error(msg)
 		return errors.New(msg)
 	}
-	logrus.Info("Successfully set up the database for the orders service")
+	log.Info("Successfully set up the database for the orders service")
 	return nil
 }
 
@@ -280,17 +280,17 @@ func setupOrdersServiceDB(db *driver.DB, init bool) error {
 // Always returns HTTP Status OK, even if the health check fails.
 func (s *OrdersService) CheckHealth(w http.ResponseWriter, r *http.Request) {
 	var err error
-	logrus.Info("Checking orders service health...")
+	log.Info("Checking orders service health...")
 	db, err := s.DB.Postgres.DB()
 	if err != nil {
-		logrus.Error("orders service health check failed: Error getting SQLDB from gorm DB: " + err.Error())
+		log.Error("orders service health check failed: Error getting SQLDB from gorm DB: " + err.Error())
 		utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": false})
 	} else {
 		if err = db.Ping(); err != nil {
-			logrus.Error("orders service health check failed: error pinging the database: " + err.Error())
+			log.Error("orders service health check failed: error pinging the database: " + err.Error())
 			utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": false})
 		} else {
-			logrus.Info("orders service health check passed")
+			log.Info("orders service health check passed")
 			utils.WriteJSONResponse(w, http.StatusOK, map[string]bool{"ok": true})
 		}
 	}

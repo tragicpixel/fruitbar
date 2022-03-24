@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/sirupsen/logrus"
+	"github.com/tragicpixel/fruitbar/pkg/utils/log"
 )
 
 // EnableCORS writes an Access-Control-Allow-Origin header with the given url to the supplied http response writer, enabling CORS for that url.
@@ -37,7 +37,7 @@ func SendCORSPreflightHeaders(opts CORSOptions, next http.HandlerFunc) http.Hand
 		ValidateHttpRequestMethod(w, r, opts.AllowedMethods)
 		if r.Method == http.MethodOptions {
 			SetCORSPreflightResponseHeaders(&w, opts.AllowedMethods)
-			logrus.Info(fmt.Sprintf("%s API: Sent response to CORS preflight request from %s", opts.APIName, r.RemoteAddr))
+			log.Info(fmt.Sprintf("%s API: Sent response to CORS preflight request from %s", opts.APIName, r.RemoteAddr))
 			return
 		}
 		next.ServeHTTP(w, r)

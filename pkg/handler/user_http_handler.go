@@ -37,9 +37,8 @@ func NewUserHandler(db *driver.DB) *User {
 // CreateUser creates a new user based on the supplied HTTP request and sends a response in JSON containing the newly created user to the supplied http response writer.
 // If there is a permission error, an HTTP error will be sent.
 func (h *User) CreateUser(w http.ResponseWriter, r *http.Request) {
-	var response = utils.JsonResponse{}
 	var user models.User
-	response = *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &user, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
+	response := *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &user, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
 	if response.Error != nil {
 		utils.WriteJSONErrorResponse(w, response.Error.Code, response.Error.Message)
 		return
@@ -97,9 +96,8 @@ func (h *User) GetUsers(w http.ResponseWriter, r *http.Request) {
 
 // UpdateUser updates an existing user based on the supplied http request and sends a response in JSON containing the updated user to the supplied http response writer.
 func (h *User) UpdateUser(w http.ResponseWriter, r *http.Request) {
-	var response = utils.JsonResponse{}
 	var user models.User
-	response = *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &user, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
+	response := *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &user, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
 	if response.Error != nil {
 		utils.WriteJSONErrorResponse(w, response.Error.Code, response.Error.Message)
 		return
@@ -294,7 +292,7 @@ func (h *User) getSingleUser(w http.ResponseWriter, r *http.Request) {
 // getUsersPage retrieves a single user from the user repository based on the supplied seek options via http query parameter.
 // Sends a response in json to the supplied http ResponseWriter.
 func (h *User) getUsersPage(w http.ResponseWriter, r *http.Request) {
-	var seek *utils.PageSeekOptions
+	var seek *repository.PageSeekOptions
 	seek, err := utils.GetPageSeekOptions(r, readPageMaxLimit)
 	if err != nil {
 		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
@@ -540,7 +538,7 @@ func (h *User) clientHasDeletePermsForID(w http.ResponseWriter, r *http.Request,
 }
 
 // getUsersRangeStr returns a string representation of the range of the supplied products.
-func (h *User) getUsersRangeStr(w http.ResponseWriter, seek *utils.PageSeekOptions, users []*models.User) string {
+func (h *User) getUsersRangeStr(w http.ResponseWriter, seek *repository.PageSeekOptions, users []*models.User) string {
 	logrus.Info("Counting users for users page read...")
 	count, err := h.repo.Count(seek)
 	if err != nil {

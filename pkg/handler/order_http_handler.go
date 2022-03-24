@@ -43,9 +43,8 @@ func NewOrderHandler(db *driver.DB) *Order {
 // CreateOrder creates a new order based on the supplied HTTP request and sends a response in JSON containing the newly created order to the supplied http response writer.
 // If there is a permission error, an HTTP error will be sent.
 func (h *Order) CreateOrder(w http.ResponseWriter, r *http.Request) {
-	var response = utils.JsonResponse{}
 	var order models.Order
-	response = *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &order, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
+	response := *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &order, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
 	if response.Error != nil {
 		utils.WriteJSONErrorResponse(w, response.Error.Code, response.Error.Message)
 		return
@@ -111,9 +110,8 @@ func (h *Order) GetOrders(w http.ResponseWriter, r *http.Request) {
 
 // UpdateOrder updates an existing order based on the supplied http request and sends a response in JSON containing the updated order to the supplied http response writer.
 func (h *Order) UpdateOrder(w http.ResponseWriter, r *http.Request) {
-	var response = utils.JsonResponse{}
 	var order models.Order
-	response = *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &order, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
+	response := *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &order, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
 	if response.Error != nil {
 		utils.WriteJSONErrorResponse(w, response.Error.Code, response.Error.Message)
 		return
@@ -213,7 +211,7 @@ func (h *Order) getSingleOrder(w http.ResponseWriter, r *http.Request) {
 // getOrdersPage sends a response to the supplied http response writer containing the requested page of orders, based on the supplied http request.
 // If read access to a specific order is forbidden, it won't be included in the response and there will be no error message. (fail silently)
 func (h *Order) getOrdersPage(w http.ResponseWriter, r *http.Request) {
-	var seek *utils.PageSeekOptions
+	var seek *repository.PageSeekOptions
 	seek, err := utils.GetPageSeekOptions(r, readPageMaxLimit)
 	if err != nil {
 		utils.WriteJSONErrorResponse(w, http.StatusBadRequest, err.Error())
@@ -508,7 +506,7 @@ func (h *Order) clientHasDeletePermsForOrder(w http.ResponseWriter, r *http.Requ
 }
 
 // getUsersRangeStr returns a string representation of the range of the supplied orders.
-func (h *Order) getOrdersRangeStr(w http.ResponseWriter, seek *utils.PageSeekOptions, orders []*models.Order) string {
+func (h *Order) getOrdersRangeStr(w http.ResponseWriter, seek *repository.PageSeekOptions, orders []*models.Order) string {
 	logrus.Info("Counting orders...")
 	count, err := h.repo.Count(seek)
 	if err != nil {

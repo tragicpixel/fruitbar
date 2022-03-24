@@ -142,14 +142,6 @@ func ValidateNewOrder(order *Order) (bool, error) {
 	}
 }
 
-func (o *Order) validateTax() bool {
-	return (o.Tax == o.Subtotal*o.TaxRate)
-}
-
-func (o *Order) validateTotal() bool {
-	return (o.Total == o.Subtotal+o.Tax)
-}
-
 func ValidateOrderUpdate(order *Order, selectedFields []string) (bool, error) {
 	var err error
 	valid := true
@@ -167,4 +159,12 @@ func ValidateOrderUpdate(order *Order, selectedFields []string) (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+func (o *Order) validateTax() bool {
+	return (o.Tax == o.Subtotal*o.TaxRate)
+}
+
+func (o *Order) validateTotal() bool {
+	return (o.Total == o.Subtotal+o.Tax)
 }

@@ -42,9 +42,8 @@ func (h *Product) CreateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var response = utils.JsonResponse{}
 	var product models.Product
-	response = *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &product, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
+	response := *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &product, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
 	if response.Error != nil {
 		utils.WriteJSONErrorResponse(w, response.Error.Code, response.Error.Message)
 		return
@@ -82,9 +81,8 @@ func (h *Product) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var response = utils.JsonResponse{}
 	var product models.Product
-	response = *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &product, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
+	response := *utils.DecodeJSONBodyAndGetErrorResponse(w, r, &product, utils.MAX_CREATE_REQUEST_SIZE_IN_BYTES)
 	if response.Error != nil {
 		utils.WriteJSONErrorResponse(w, response.Error.Code, response.Error.Message)
 		return
@@ -290,7 +288,7 @@ func (h *Product) clientHasDeletePerms(w http.ResponseWriter, r *http.Request) b
 }
 
 // getProductsRangeStr returns a string representation of the range of the supplied products.
-func (h *Product) getProductsRangeStr(w http.ResponseWriter, seek *utils.PageSeekOptions, products []*models.Product) string {
+func (h *Product) getProductsRangeStr(w http.ResponseWriter, seek *repository.PageSeekOptions, products []*models.Product) string {
 	logrus.Info("Counting products...")
 	// TODO: Cache this count value and update every X seconds, so we don't need to perform a full count on every page read.
 	// TODO: I want a full count here, but I think this is just returning the number of total records based on this seek, not the total # of orders.

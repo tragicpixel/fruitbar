@@ -8,9 +8,9 @@ import (
 	"strings"
 )
 
-// ValidateHttpRequestMethod valides whether the given http request's method is one of the allowed methods.
+// ValidateRequestMethod valides whether the given http request's method is one of the allowed methods.
 // If the method doesn't match, an error message is written back in response.
-func ValidateHttpRequestMethod(w http.ResponseWriter, r *http.Request, allowedMethods []string) {
+func ValidateRequestMethod(w http.ResponseWriter, r *http.Request, allowedMethods []string) {
 	methodIsValid := false
 	for _, method := range allowedMethods {
 		if r.Method == method {

@@ -12,7 +12,6 @@ import (
 	"github.com/tragicpixel/fruitbar/pkg/utils/json"
 	jwtutils "github.com/tragicpixel/fruitbar/pkg/utils/jwt"
 	"github.com/tragicpixel/fruitbar/pkg/utils/log"
-	stringutils "github.com/tragicpixel/fruitbar/pkg/utils/string"
 	"gorm.io/gorm"
 
 	"errors"
@@ -337,7 +336,7 @@ func (h *User) partiallyUpdateUser(w http.ResponseWriter, r *http.Request, user 
 		return
 	}
 
-	if stringutils.IsStringInSlice("password", fields) {
+	if utils.IsStringInSlice("password", fields) {
 		log.Info(fmt.Sprintf("Password changed for user %s: Hashing password...", user.Name))
 		err = h.repo.HashPassword(&user, user.Password)
 		if err != nil {

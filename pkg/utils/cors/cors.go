@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/tragicpixel/fruitbar/pkg/utils"
+	httputils "github.com/tragicpixel/fruitbar/pkg/utils/http"
 	"github.com/tragicpixel/fruitbar/pkg/utils/log"
 )
 
@@ -38,7 +38,7 @@ type Options struct {
 func SendPreflightHeaders(opts Options, next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		Enable(&w, opts.AllowedURL) // ?? is this the right way to do this
-		utils.ValidateHttpRequestMethod(w, r, opts.AllowedMethods)
+		httputils.ValidateRequestMethod(w, r, opts.AllowedMethods)
 		if r.Method == http.MethodOptions {
 			SetPreflightHeaders(&w, opts.AllowedMethods)
 			log.Info(fmt.Sprintf("%s API: Sent response to CORS preflight request from %s", opts.APIName, r.RemoteAddr))

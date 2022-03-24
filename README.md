@@ -6,7 +6,7 @@ Fruitbar allows you to place and manage delicious orders of fruit.
 
 Fruitbar is a **data entry web application** designed under a **micro-service architecture** using **Go** for the backend and **ReactJS** for the frontend. Under the hood, it uses **Docker** for containerization and **Postgres** for the database. It utilizes a **multi-stage build pipeline** with **Jenkins** as the CI/CD tool. It also provides scripts to generate **OpenAPI (2.0)** specs and **godoc**s.
 
-**It is meant to be a sample project for my resume.**
+**It is meant to be a sample project for my resume.** The idea here is to present the same kind of POC a senior engineer might deliver, for whatever project.
 
 Feature Highlights
 ------------------
@@ -65,6 +65,18 @@ The deployment is managed via Jenkins. (jenkins stuff here) The scripts themselv
 - Build the application: `make build`
 - Run the application: `make run`
 - Stop the application: `make stop`
+
+Code
+----
+### Packages
+- driver: Connection to the actual data repository (in this case, postgres)
+- handler: Handle incoming HTTP requests to perform operations on data
+- models: Models of the various data types handled by the system
+- repository: Implement the various operations on data (in this case, postgres, but could swap it out for anything using the provided interfaces)
+- service: Services that host endpoints for the http handlers and health check
+- utils: Various utilities utilized by multiple other packages
+
+[Coding style guide for the project](style_guide.md)
 
 Design Decisions
 ================

@@ -91,16 +91,16 @@ func (s *UsersService) getHealthCheckAPIOptions() cors.Options {
 }
 
 func (s *UsersService) getCreateAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.Handler.IsAuthorized(s.Handler.HasRole(cors.SendPreflightHeaders(s.getCreateAPIOptions(), s.Handler.CreateUser), roles.Admin))
+	return cors.SendPreflightHeaders(s.getCreateAPIOptions(), s.Handler.IsAuthorized(s.Handler.HasRole(s.Handler.CreateUser, roles.Admin)))
 }
 func (s *UsersService) getReadAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.Handler.IsAuthorized(cors.SendPreflightHeaders(s.getReadAPIOptions(), s.Handler.GetUsers))
+	return cors.SendPreflightHeaders(s.getReadAPIOptions(), s.Handler.IsAuthorized(s.Handler.GetUsers))
 }
 func (s *UsersService) getUpdateAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.Handler.IsAuthorized(s.Handler.HasRole(cors.SendPreflightHeaders(s.getUpdateAPIOptions(), s.Handler.UpdateUser), roles.Admin))
+	return cors.SendPreflightHeaders(s.getUpdateAPIOptions(), s.Handler.IsAuthorized(s.Handler.HasRole(s.Handler.UpdateUser, roles.Admin)))
 }
 func (s *UsersService) getDeleteAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.Handler.IsAuthorized(s.Handler.HasRole(cors.SendPreflightHeaders(s.getDeleteAPIOptions(), s.Handler.DeleteUser), roles.Admin))
+	return cors.SendPreflightHeaders(s.getDeleteAPIOptions(), s.Handler.IsAuthorized(s.Handler.HasRole(s.Handler.DeleteUser, roles.Admin)))
 }
 func (s *UsersService) getLoginAPIHandler() func(http.ResponseWriter, *http.Request) {
 	return cors.SendPreflightHeaders(s.getLoginAPIOptions(), s.Handler.Login)

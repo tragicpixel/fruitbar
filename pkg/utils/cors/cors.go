@@ -39,8 +39,8 @@ func SendPreflightHeaders(opts Options, next http.HandlerFunc) http.HandlerFunc 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		Enable(&w, opts.AllowedURL) // ?? is this the right way to do this
 		httputils.ValidateRequestMethod(w, r, opts.AllowedMethods)
+		SetPreflightHeaders(&w, opts.AllowedMethods)
 		if r.Method == http.MethodOptions {
-			SetPreflightHeaders(&w, opts.AllowedMethods)
 			log.Info(fmt.Sprintf("%s API: Sent response to CORS preflight request from %s", opts.APIName, r.RemoteAddr))
 			return
 		}

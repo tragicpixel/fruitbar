@@ -77,16 +77,16 @@ func (s *ProductsService) getHealthCheckAPICORSOptions() cors.Options {
 }
 
 func (s *ProductsService) getCreateAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.UserHandler.IsAuthorized(s.UserHandler.HasRole(cors.SendPreflightHeaders(s.getCreateAPICORSOptions(), s.Handler.CreateProduct), roles.Admin))
+	return cors.SendPreflightHeaders(s.getCreateAPICORSOptions(), s.UserHandler.IsAuthorized(s.UserHandler.HasRole(s.Handler.CreateProduct, roles.Admin)))
 }
 func (s *ProductsService) getReadAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.UserHandler.IsAuthorized(cors.SendPreflightHeaders(s.getReadAPICORSOptions(), s.Handler.GetProducts))
+	return cors.SendPreflightHeaders(s.getReadAPICORSOptions(), s.UserHandler.IsAuthorized(s.Handler.GetProducts))
 }
 func (s *ProductsService) getUpdateAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.UserHandler.IsAuthorized(s.UserHandler.HasRole(cors.SendPreflightHeaders(s.getUpdateAPICORSOptions(), s.Handler.UpdateProduct), roles.Admin))
+	return cors.SendPreflightHeaders(s.getUpdateAPICORSOptions(), s.UserHandler.IsAuthorized(s.UserHandler.HasRole(s.Handler.UpdateProduct, roles.Admin)))
 }
 func (s *ProductsService) getDeleteAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.UserHandler.IsAuthorized(s.UserHandler.HasRole(cors.SendPreflightHeaders(s.getDeleteAPICORSOptions(), s.Handler.DeleteProduct), roles.Admin))
+	return cors.SendPreflightHeaders(s.getDeleteAPICORSOptions(), s.UserHandler.IsAuthorized(s.UserHandler.HasRole(s.Handler.DeleteProduct, roles.Admin)))
 }
 func (s *ProductsService) getHealthCheckAPIHandler() func(http.ResponseWriter, *http.Request) {
 	return cors.SendPreflightHeaders(s.getHealthCheckAPICORSOptions(), s.CheckHealth)

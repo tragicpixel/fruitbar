@@ -195,6 +195,10 @@ func (h *Order) getSingleOrder(w http.ResponseWriter, r *http.Request) {
 	var order *models.Order
 	order, err = h.repo.GetByID(id)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			json.WriteErrorResponse(w, http.StatusNotFound, orderNotFoundMsg)
+			return
+		}
 		logMsg := fmt.Sprintf("Error selecting order (id: %d): %s", id, err.Error())
 		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
@@ -434,7 +438,7 @@ func (h *Order) clientHasCreatePermsForOrder(w http.ResponseWriter, r *http.Requ
 	}
 	// Customers can only create orders owned by themselves
 	if client.UserRole == roles.Customer && order.OwnerID != client.UserID {
-		http.Error(w, unauthorizedErrMsg, http.StatusUnauthorized)
+		json.WriteErrorResponse(w, http.StatusForbidden, forbiddenCreateOrderErrMsg)
 		return false
 	}
 	return true
@@ -449,7 +453,7 @@ func (h *Order) clientHasReadPermsForOrder(w http.ResponseWriter, r *http.Reques
 	}
 	// Customers can only read orders with their own IDs
 	if client.UserRole == roles.Customer && order.OwnerID != client.UserID {
-		http.Error(w, forbiddenReadOrderErrMsg, http.StatusForbidden)
+		json.WriteErrorResponse(w, http.StatusForbidden, forbiddenReadOrderErrMsg)
 		return false
 	}
 	return true

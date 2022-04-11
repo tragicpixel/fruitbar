@@ -274,6 +274,10 @@ func (h *User) getSingleUser(w http.ResponseWriter, r *http.Request) {
 	log.Info(fmt.Sprintf("Selecting user (id: %d)...", id))
 	user, err = h.repo.GetByID(id)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			json.WriteErrorResponse(w, http.StatusNotFound, userNotFoundMsg)
+			return
+		}
 		logMsg := fmt.Sprintf("Error selecting user (id: %d): %s", id, err.Error())
 		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
@@ -413,7 +417,7 @@ func (h *User) clientHasCreateUserPermsForUser(w http.ResponseWriter, r *http.Re
 	}
 	// Only admins can create employee or admin users
 	if user.Role != roles.Customer && client.UserRole != roles.Admin {
-		http.Error(w, forbiddenCreateUserErrMsg, http.StatusForbidden)
+		json.WriteErrorResponse(w, http.StatusForbidden, forbiddenCreateUserErrMsg)
 		return false
 	}
 	return true
@@ -525,6 +529,11 @@ func (h *User) clientHasDeletePermsForID(w http.ResponseWriter, r *http.Request,
 		log.Info("Reading User for proposed delete...")
 		user, err := h.repo.GetByID(id)
 		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				msg := "Could not delete user: " + userNotFoundMsg
+				json.WriteErrorResponse(w, http.StatusNotFound, msg)
+				return false
+			}
 			logMsg := fmt.Sprintf("Error reading user (id: %d): %s", id, err.Error())
 			json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 			return false

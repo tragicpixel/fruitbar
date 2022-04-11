@@ -78,16 +78,16 @@ func (s *OrdersService) getHealthCheckAPICORSOptions() cors.Options {
 }
 
 func (s *OrdersService) getCreateAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.UserHandler.IsAuthorized(cors.SendPreflightHeaders(s.getCreateAPICORSOptions(), s.Handler.CreateOrder))
+	return cors.SendPreflightHeaders(s.getCreateAPICORSOptions(), s.UserHandler.IsAuthorized(s.Handler.CreateOrder))
 }
 func (s *OrdersService) getReadAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.UserHandler.IsAuthorized(cors.SendPreflightHeaders(s.getReadAPICORSOptions(), s.Handler.GetOrders))
+	return cors.SendPreflightHeaders(s.getReadAPICORSOptions(), s.UserHandler.IsAuthorized(s.Handler.GetOrders))
 }
 func (s *OrdersService) getUpdateAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.UserHandler.IsAuthorized(cors.SendPreflightHeaders(s.getUpdateAPICORSOptions(), s.Handler.UpdateOrder))
+	return cors.SendPreflightHeaders(s.getUpdateAPICORSOptions(), s.UserHandler.IsAuthorized(s.Handler.UpdateOrder))
 }
 func (s *OrdersService) getDeleteAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return s.UserHandler.IsAuthorized(cors.SendPreflightHeaders(s.getDeleteAPICORSOptions(), s.Handler.DeleteOrder))
+	return cors.SendPreflightHeaders(s.getDeleteAPICORSOptions(), s.UserHandler.IsAuthorized(s.Handler.DeleteOrder))
 }
 func (s *OrdersService) getHealthCheckAPIHandler() func(http.ResponseWriter, *http.Request) {
 	return cors.SendPreflightHeaders(s.getHealthCheckAPICORSOptions(), s.CheckHealth)

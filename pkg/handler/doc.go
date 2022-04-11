@@ -8,18 +8,22 @@ const (
 	unauthorizedErrMsgPrefix     = "Authorization failed: "
 	forbiddenErrMsgPrefix        = "Forbidden: Not enough privileges to "
 
+	forbiddenCreateOrderErrMsg = forbiddenErrMsgPrefix + "create this Order."
 	forbiddenReadOrderErrMsg   = forbiddenErrMsgPrefix + "read this Order."
 	forbiddenUpdateOrderErrMsg = forbiddenErrMsgPrefix + "update this Order."
 	forbiddenDeleteOrderErrMsg = forbiddenErrMsgPrefix + "delete this Order."
+	orderNotFoundMsg           = "The specified order could not be found."
 
 	forbiddenCreateUserErrMsg = forbiddenErrMsgPrefix + "create Users with the 'employee' or 'admin' roles."
 	forbiddenReadUserErrMsg   = forbiddenErrMsgPrefix + "read this User."
 	forbiddenUpdateUserErrMsg = forbiddenErrMsgPrefix + "update this User."
 	forbiddenDeleteUserErrMsg = forbiddenErrMsgPrefix + "delete this User."
+	userNotFoundMsg           = "The specified user could not be found."
 
 	forbiddenCreateProductErrMsg = forbiddenErrMsgPrefix + "create a Product."
 	forbiddenUpdateProductErrMsg = forbiddenErrMsgPrefix + "update a Product."
 	forbiddenDeleteProductErrMsg = forbiddenErrMsgPrefix + "delete a Product."
+	productNotFoundMsg           = "The specified product could not be found."
 
 	idParam     = "id"
 	fieldsParam = "fields"

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/tragicpixel/fruitbar/pkg/driver"
@@ -15,6 +16,7 @@ import (
 	"github.com/tragicpixel/fruitbar/pkg/utils/json"
 	jwtutils "github.com/tragicpixel/fruitbar/pkg/utils/jwt"
 	"github.com/tragicpixel/fruitbar/pkg/utils/log"
+	"gorm.io/gorm"
 
 	"fmt"
 	"net/http"
@@ -147,6 +149,10 @@ func (h *Product) getSingleProduct(w http.ResponseWriter, r *http.Request) {
 	var product *models.Product
 	product, err = h.repo.GetByID(id)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			json.WriteErrorResponse(w, http.StatusNotFound, productNotFoundMsg)
+			return
+		}
 		logMsg := fmt.Sprintf("Error reading product (id: %d): %s", id, err.Error())
 		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
@@ -252,7 +258,7 @@ func (h *Product) clientHasCreatePerms(w http.ResponseWriter, r *http.Request) b
 	}
 	// Only an admin can create a product
 	if client.UserRole == roles.Admin {
-		http.Error(w, forbiddenCreateProductErrMsg, http.StatusForbidden)
+		json.WriteErrorResponse(w, http.StatusForbidden, forbiddenCreateProductErrMsg)
 		return false
 	}
 	return true
@@ -267,7 +273,7 @@ func (h *Product) clientHasUpdatePerms(w http.ResponseWriter, r *http.Request) b
 	}
 	// Only an admin can update a product
 	if client.UserRole == roles.Admin {
-		http.Error(w, forbiddenUpdateProductErrMsg, http.StatusForbidden)
+		json.WriteErrorResponse(w, http.StatusForbidden, forbiddenUpdateProductErrMsg)
 		return false
 	}
 	return true
@@ -282,7 +288,7 @@ func (h *Product) clientHasDeletePerms(w http.ResponseWriter, r *http.Request) b
 	}
 	// Only an admin can delete a product
 	if client.UserRole == roles.Admin {
-		http.Error(w, forbiddenDeleteProductErrMsg, http.StatusForbidden)
+		json.WriteErrorResponse(w, http.StatusForbidden, forbiddenDeleteProductErrMsg)
 		return false
 	}
 	return true

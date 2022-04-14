@@ -40,32 +40,39 @@ const (
 	productsHealthAPIRoute = productsAPIBaseRoute + "health"
 )
 
+func (s *ProductsService) getProductsEndpointOptions() cors.Options {
+	return cors.Options{
+		AllowedURL:     UI_URL,
+		APIName:        "Products Options",
+		AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete},
+	}
+}
 func (s *ProductsService) getCreateAPICORSOptions() cors.Options {
 	return cors.Options{
 		AllowedURL:     UI_URL,
 		APIName:        "Create Product",
-		AllowedMethods: []string{http.MethodPost, http.MethodOptions},
+		AllowedMethods: []string{http.MethodPost},
 	}
 }
 func (s *ProductsService) getReadAPICORSOptions() cors.Options {
 	return cors.Options{
 		AllowedURL:     UI_URL,
 		APIName:        "Read Product",
-		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
+		AllowedMethods: []string{http.MethodGet},
 	}
 }
 func (s *ProductsService) getUpdateAPICORSOptions() cors.Options {
 	return cors.Options{
 		AllowedURL:     UI_URL,
 		APIName:        "Update Product",
-		AllowedMethods: []string{http.MethodPut, http.MethodOptions},
+		AllowedMethods: []string{http.MethodPut},
 	}
 }
 func (s *ProductsService) getDeleteAPICORSOptions() cors.Options {
 	return cors.Options{
 		AllowedURL:     UI_URL,
 		APIName:        "Delete Product",
-		AllowedMethods: []string{http.MethodDelete, http.MethodOptions},
+		AllowedMethods: []string{http.MethodDelete},
 	}
 }
 func (s *ProductsService) getHealthCheckAPICORSOptions() cors.Options {
@@ -120,6 +127,7 @@ func NewProductsService(config *ProductsServiceConfig) (*ProductsService, error)
 func (s *ProductsService) NewProductsServiceRouter(db *driver.DB) *mux.Router {
 	r := mux.NewRouter()
 
+	r.HandleFunc(productsAPIBaseRoute, cors.SendPreflightHeaders(s.getProductsEndpointOptions(), nil)).Methods(http.MethodOptions)
 	// swagger:operation POST /products products createProduct
 	//
 	// Create a new product.

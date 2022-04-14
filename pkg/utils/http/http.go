@@ -5,27 +5,17 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"strings"
 )
 
 // ValidateRequestMethod valides whether the given http request's method is one of the allowed methods.
 // If the method doesn't match, an error message is written back in response.
-func ValidateRequestMethod(w http.ResponseWriter, r *http.Request, allowedMethods []string) {
-	methodIsValid := false
+func ValidateRequestMethod(w http.ResponseWriter, r *http.Request, allowedMethods []string) bool {
 	for _, method := range allowedMethods {
 		if r.Method == method {
-			methodIsValid = true
+			return true
 		}
 	}
-	if !methodIsValid {
-		allowedMethodsList := strings.Join(allowedMethods, " or")
-		msg := "Method must be: " + allowedMethodsList
-		for _, method := range allowedMethods {
-			w.Header().Add("Allow", method)
-		}
-		http.Error(w, msg, http.StatusMethodNotAllowed)
-		return
-	}
+	return false
 }
 
 // GetRequestBodyAsString returns the supplied http request's body as a string.

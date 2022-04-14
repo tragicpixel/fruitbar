@@ -109,6 +109,18 @@ func (h *Product) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 		json.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	exists, err := h.repo.Exists(id)
+	if !exists {
+		json.WriteErrorResponse(w, http.StatusNotFound, productNotFoundMsg)
+		return
+	}
+	if err != nil {
+		logMsg := fmt.Sprintf("Error checking existence of product before delete (id: %d): %s", id, err.Error())
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		return
+	}
+
 	log.Info(fmt.Sprintf("Selecting items with product id %d for potential delete...", id))
 	existingItems, err := h.itemsRepo.GetByProductID(id)
 	if err != nil {
@@ -117,7 +129,7 @@ func (h *Product) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, item := range existingItems {
-		log.Info(fmt.Sprintf("Deleting existing item (id: %d) from product (id: %d)", item.ID, id))
+		log.Info(fmt.Sprintf("Deleting existing item (id: %d, order id: %d) with product (id: %d)", item.ID, item.OrderID, id))
 		err := h.itemsRepo.Delete(item.ID)
 		if err != nil {
 			logMsg := fmt.Sprintf("Error deleting existing item (id: %d): %s", item.ID, err.Error())
@@ -135,7 +147,7 @@ func (h *Product) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Info(fmt.Sprintf("Successfully deleted product with id = %d.", id))
-	w.WriteHeader(http.StatusNoContent)
+	json.WriteResponse(w, http.StatusOK, json.Response{})
 }
 
 // getSingleOrder sends a response to the supplied http response writer containing the requested product, based on the supplied http request.
@@ -256,8 +268,7 @@ func (h *Product) clientHasCreatePerms(w http.ResponseWriter, r *http.Request) b
 	if client == nil {
 		return false
 	}
-	// Only an admin can create a product
-	if client.UserRole == roles.Admin {
+	if client.UserRole != roles.Admin {
 		json.WriteErrorResponse(w, http.StatusForbidden, forbiddenCreateProductErrMsg)
 		return false
 	}
@@ -272,7 +283,7 @@ func (h *Product) clientHasUpdatePerms(w http.ResponseWriter, r *http.Request) b
 		return false
 	}
 	// Only an admin can update a product
-	if client.UserRole == roles.Admin {
+	if client.UserRole != roles.Admin {
 		json.WriteErrorResponse(w, http.StatusForbidden, forbiddenUpdateProductErrMsg)
 		return false
 	}
@@ -287,7 +298,7 @@ func (h *Product) clientHasDeletePerms(w http.ResponseWriter, r *http.Request) b
 		return false
 	}
 	// Only an admin can delete a product
-	if client.UserRole == roles.Admin {
+	if client.UserRole != roles.Admin {
 		json.WriteErrorResponse(w, http.StatusForbidden, forbiddenDeleteProductErrMsg)
 		return false
 	}

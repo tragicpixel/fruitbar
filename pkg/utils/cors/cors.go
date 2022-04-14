@@ -3,6 +3,7 @@ package cors
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	httputils "github.com/tragicpixel/fruitbar/pkg/utils/http"
 	"github.com/tragicpixel/fruitbar/pkg/utils/log"
@@ -19,9 +20,7 @@ func Enable(w *http.ResponseWriter, url string) {
 // SetPreflightHeaders writes the Access-Control-Allow-Methods and Access-Control-Allow-Headers headers to the supplied http response writer.
 // This gives the requestor all the information they need to make requests on the particular endpoint you are calling this function from.
 func SetPreflightHeaders(w *http.ResponseWriter, allowedMethods []string) {
-	for _, method := range allowedMethods {
-		(*w).Header().Set("Access-Control-Allow-Methods", method)
-	}
+	(*w).Header().Set("Access-Control-Allow-Methods", strings.Join(allowedMethods, ", "))
 	(*w).Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Access-Control-Allow-Credentials, Access-Control-Allow-Origin")
 }
 
@@ -37,13 +36,15 @@ type Options struct {
 // SendPreflightHeaders sends the preflight headers for CORS requests.
 func SendPreflightHeaders(opts Options, next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		Enable(&w, opts.AllowedURL) // ?? is this the right way to do this
-		httputils.ValidateRequestMethod(w, r, opts.AllowedMethods)
+		Enable(&w, opts.AllowedURL) // ?? is this the right way to do this (use array?)
 		SetPreflightHeaders(&w, opts.AllowedMethods)
 		if r.Method == http.MethodOptions {
 			log.Info(fmt.Sprintf("%s API: Sent response to CORS preflight request from %s", opts.APIName, r.RemoteAddr))
 			return
+		} else {
+			httputils.ValidateRequestMethod(w, r, opts.AllowedMethods)
 		}
+
 		next.ServeHTTP(w, r)
 	})
 }

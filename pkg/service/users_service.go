@@ -31,7 +31,7 @@ type UsersServiceConfig struct {
 
 const (
 	usersAPIBaseRoute           = "/users"
-	usersCreateAPIRoute         = usersAPIBaseRoute + "/register" // for now, remove /register later
+	usersCreateAPIRoute         = usersAPIBaseRoute
 	usersReadAPIRoute           = usersAPIBaseRoute
 	usersUpdateAPIRoute         = usersAPIBaseRoute
 	usersDeleteAPIRoute         = usersAPIBaseRoute
@@ -40,32 +40,39 @@ const (
 	usersHealthAPIRoute         = usersAPIBaseRoute + "/health"
 )
 
+func (s *UsersService) getUsersEndpointOptions() cors.Options {
+	return cors.Options{
+		AllowedURL:     UI_URL,
+		APIName:        "Users Options",
+		AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete},
+	}
+}
 func (s *UsersService) getCreateAPIOptions() cors.Options {
 	return cors.Options{
 		AllowedURL:     UI_URL,
 		APIName:        "Create User",
-		AllowedMethods: []string{http.MethodPost, http.MethodOptions},
+		AllowedMethods: []string{http.MethodPost},
 	}
 }
 func (s *UsersService) getReadAPIOptions() cors.Options {
 	return cors.Options{
 		AllowedURL:     UI_URL,
 		APIName:        "Read User",
-		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
+		AllowedMethods: []string{http.MethodGet},
 	}
 }
 func (s *UsersService) getUpdateAPIOptions() cors.Options {
 	return cors.Options{
 		AllowedURL:     UI_URL,
 		APIName:        "Update User",
-		AllowedMethods: []string{http.MethodPut, http.MethodOptions},
+		AllowedMethods: []string{http.MethodPut},
 	}
 }
 func (s *UsersService) getDeleteAPIOptions() cors.Options {
 	return cors.Options{
 		AllowedURL:     UI_URL,
 		APIName:        "Delete User",
-		AllowedMethods: []string{http.MethodDelete, http.MethodOptions},
+		AllowedMethods: []string{http.MethodDelete},
 	}
 }
 func (s *UsersService) getLoginAPIOptions() cors.Options {
@@ -140,6 +147,7 @@ func NewUsersService(config *UsersServiceConfig) (*UsersService, error) {
 func (s *UsersService) NewUsersServiceRouter(db *driver.DB) *mux.Router {
 	r := mux.NewRouter()
 
+	r.HandleFunc(usersAPIBaseRoute, cors.SendPreflightHeaders(s.getUsersEndpointOptions(), nil)).Methods(http.MethodOptions)
 	// swagger:operation POST /users/login users authUser
 	//
 	// Log a user in and return a JWT.

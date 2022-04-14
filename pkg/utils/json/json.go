@@ -145,7 +145,6 @@ func Decode(w http.ResponseWriter, r *http.Request, destination interface{}, max
 		err = decoder.Decode(&struct{}{}) // if request body only contained a single JSON object this will return io.EOF error
 		if err != io.EOF {
 			msg := "Request body must only contain a single JSON object"
-			http.Error(w, msg, http.StatusBadRequest) // maybe just return don't do an http write
 			return &MalformedRequestError{Status: http.StatusBadRequest, Message: msg}
 		} else { // There was only one Json object
 			return nil

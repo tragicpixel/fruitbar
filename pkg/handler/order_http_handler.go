@@ -145,6 +145,11 @@ func (h *Order) DeleteOrder(w http.ResponseWriter, r *http.Request) {
 	log.Info(fmt.Sprintf("Reading order (id: %d) for proposed deletion...", id))
 	order, err := h.repo.GetByID(id)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			logMsg := fmt.Sprintf("failed to find order for proposed deletion with id: %d: %s", id, err.Error())
+			json.WriteErrorResponse(w, http.StatusNotFound, orderNotFoundMsg, logMsg)
+			return
+		}
 		logMsg := "Error reading order for proposed deletion: " + err.Error()
 		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 		return
@@ -179,8 +184,7 @@ func (h *Order) DeleteOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Info(fmt.Sprintf("Deleted order (id: %d)", id))
-
-	w.WriteHeader(http.StatusNoContent)
+	json.WriteResponse(w, http.StatusOK, json.Response{})
 }
 
 // getSingleOrder sends a response to the supplied http response writer containing the requested order, based on the supplied http request.

@@ -127,6 +127,17 @@ func (h *User) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Info(fmt.Sprintf("Deleting User (id: %d)...", id))
+	exists, err := h.repo.Exists(id)
+	if !exists {
+		msg := fmt.Sprintf("User with id = %d could not be found", id)
+		json.WriteErrorResponse(w, http.StatusNotFound, msg)
+		return
+	}
+	if err != nil {
+		logMsg := fmt.Sprintf("Error checking existence of user before delete (id: %d): %s", id, err.Error())
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		return
+	}
 	err = h.repo.Delete(id)
 	if err != nil {
 		logMsg := fmt.Sprintf("Error deleting User (id: %d): %s", id, err.Error())
@@ -134,8 +145,7 @@ func (h *User) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Info(fmt.Sprintf("Successfully deleted User with id = %d.", id))
-	response := json.Response{}
-	json.WriteResponse(w, http.StatusOK, response) // could also just w.WriteHeader(http.StatusNoContent) and not send a response at all?
+	json.WriteResponse(w, http.StatusOK, json.Response{})
 }
 
 // GetPasswordFormatMessage always sends a response containing a message explaining the constraints applied when setting a new password.
@@ -200,15 +210,15 @@ func (h *User) IsAuthorized(next http.HandlerFunc) http.HandlerFunc {
 		log.Info("Starting client authorization...")
 		auth := r.Header.Get("Authorization")
 		if auth == "" {
-			log.Error(unauthorizedErrMsgPrefix + "No authorization header provided")
-			http.Error(w, unauthorizedErrMsg, http.StatusForbidden)
+			logMsg := unauthorizedErrMsgPrefix + "No authorization header provided"
+			json.WriteErrorResponse(w, http.StatusUnauthorized, unauthorizedErrMsg, logMsg)
 			return
 		}
 
 		authToken, err := jwtutils.GetTokenFromAuthHeader(auth)
 		if err != nil {
-			log.Error(err.Error())
-			http.Error(w, unauthorizedErrMsg, http.StatusBadRequest)
+			logMsg := unauthorizedErrMsgPrefix + err.Error()
+			json.WriteErrorResponse(w, http.StatusUnauthorized, unauthorizedErrMsg, logMsg)
 			return
 		}
 
@@ -216,8 +226,8 @@ func (h *User) IsAuthorized(next http.HandlerFunc) http.HandlerFunc {
 
 		_, err = h.jwtRepo.ValidateToken(&authReal, authToken)
 		if err != nil {
-			log.Error(unauthorizedErrMsgPrefix + "SecretKey and/or Issuer wrong")
-			http.Error(w, unauthorizedErrMsg, http.StatusUnauthorized)
+			logMsg := unauthorizedErrMsgPrefix + "SecretKey and/or Issuer wrong"
+			json.WriteErrorResponse(w, http.StatusUnauthorized, unauthorizedErrMsg, logMsg)
 			return
 		}
 		log.Info("Authorization successful.")
@@ -243,14 +253,14 @@ func (h *User) HasRole(next http.HandlerFunc, role string) http.HandlerFunc {
 
 		hasRole, err := roles.HasRole(requestor.UserRole, role)
 		if err != nil {
-			log.Error(fmt.Sprintf("Unexpected error checking client's role: %s", err.Error()))
-			http.Error(w, internalServerErrMsg, http.StatusInternalServerError)
+			logMsg := "Unexpected error checking client's role: " + err.Error()
+			json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
 			return
 		}
 
 		if !hasRole {
-			log.Error(fmt.Sprintf(unauthorizedErrMsgPrefix+"Client's role does not meet the access level requirements: expecting '%s' got '%s'", role, requestor.UserRole))
-			http.Error(w, unauthorizedErrMsg, http.StatusUnauthorized)
+			logMsg := fmt.Sprintf(unauthorizedErrMsgPrefix+"Client's role does not meet the access level requirements: expecting '%s' got '%s'", role, requestor.UserRole)
+			json.WriteErrorResponse(w, http.StatusUnauthorized, unauthorizedErrMsg, logMsg)
 			return
 		}
 		next.ServeHTTP(w, r)

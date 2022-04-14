@@ -41,32 +41,39 @@ const (
 	ordersHealthAPIRoute = ordersAPIBaseRoute + "health"
 )
 
+func (s *OrdersService) getOrdersEndpointOptions() cors.Options {
+	return cors.Options{
+		AllowedURL:     UI_URL,
+		APIName:        "Orders Options",
+		AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete},
+	}
+}
 func (s *OrdersService) getCreateAPICORSOptions() cors.Options {
 	return cors.Options{
 		AllowedURL:     UI_URL,
 		APIName:        "Create Order",
-		AllowedMethods: []string{http.MethodPost, http.MethodOptions},
+		AllowedMethods: []string{http.MethodPost},
 	}
 }
 func (s *OrdersService) getReadAPICORSOptions() cors.Options {
 	return cors.Options{
 		AllowedURL:     UI_URL,
 		APIName:        "Read Order",
-		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
+		AllowedMethods: []string{http.MethodGet},
 	}
 }
 func (s *OrdersService) getUpdateAPICORSOptions() cors.Options {
 	return cors.Options{
 		AllowedURL:     UI_URL,
 		APIName:        "Update Order",
-		AllowedMethods: []string{http.MethodPut, http.MethodOptions},
+		AllowedMethods: []string{http.MethodPut},
 	}
 }
 func (s *OrdersService) getDeleteAPICORSOptions() cors.Options {
 	return cors.Options{
 		AllowedURL:     UI_URL,
 		APIName:        "Delete Order",
-		AllowedMethods: []string{http.MethodDelete, http.MethodOptions},
+		AllowedMethods: []string{http.MethodDelete},
 	}
 }
 func (s *OrdersService) getHealthCheckAPICORSOptions() cors.Options {
@@ -122,6 +129,7 @@ func NewOrdersService(config *OrdersServiceConfig) (*OrdersService, error) {
 func (s *OrdersService) NewOrdersServiceRouter(db *driver.DB) *mux.Router {
 	r := mux.NewRouter()
 
+	r.HandleFunc(productsAPIBaseRoute, cors.SendPreflightHeaders(s.getOrdersEndpointOptions(), nil)).Methods(http.MethodOptions)
 	// swagger:operation POST /orders/ orders createOrder
 	//
 	// Create a new order.

@@ -28,6 +28,5 @@ const (
 	idParam     = "id"
 	fieldsParam = "fields"
 
-	readPageMaxLimit         = 10
-	readOrdersMaxRecordLimit = 10
+	readPageMaxLimit = 1000
 )

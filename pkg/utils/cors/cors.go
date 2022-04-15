@@ -13,7 +13,6 @@ import (
 func Enable(w *http.ResponseWriter, url string) {
 	// TODO: needs to check the URL against the list of allowed urls and determine if it matches one of the allowed ones, then send it back
 	// this is the recommended way to do it
-	// need a different list of allowed URLs for CRUD API calls, Auth service calls, and Health check calls (?)
 	(*w).Header().Set("Access-Control-Allow-Origin", url)
 }
 
@@ -22,6 +21,7 @@ func Enable(w *http.ResponseWriter, url string) {
 func SetPreflightHeaders(w *http.ResponseWriter, allowedMethods []string) {
 	(*w).Header().Set("Access-Control-Allow-Methods", strings.Join(allowedMethods, ", "))
 	(*w).Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Access-Control-Allow-Credentials, Access-Control-Allow-Origin")
+	(*w).Header().Set("Access-Control-Expose-Headers", "Content-Range")
 }
 
 type Options struct {

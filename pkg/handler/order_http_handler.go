@@ -226,7 +226,7 @@ func (h *Order) getOrdersPage(w http.ResponseWriter, r *http.Request) {
 		json.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	log.Info(fmt.Sprintf("Selecting %d orders (max %d)...", seek.RecordLimit, readOrdersMaxRecordLimit))
+	log.Info(fmt.Sprintf("Selecting %d orders (max %d)...", seek.RecordLimit, readPageMaxLimit))
 	var orders []*models.Order
 	orders, err = h.repo.Fetch(seek)
 	if err != nil {

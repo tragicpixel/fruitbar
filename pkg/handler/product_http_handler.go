@@ -191,7 +191,7 @@ func (h *Product) getProductsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rangeStr := h.getProductsRangeStr(w, seek, products)
+	rangeStr := h.getProductsRangeStr(w, products)
 	w.Header().Set("Content-Range", rangeStr)
 	log.Info(fmt.Sprintf("Read %d products", len(products)))
 	response := json.Response{Data: products}
@@ -306,11 +306,11 @@ func (h *Product) clientHasDeletePerms(w http.ResponseWriter, r *http.Request) b
 }
 
 // getProductsRangeStr returns a string representation of the range of the supplied products.
-func (h *Product) getProductsRangeStr(w http.ResponseWriter, seek *repository.PageSeekOptions, products []*models.Product) string {
+func (h *Product) getProductsRangeStr(w http.ResponseWriter, products []*models.Product) string {
 	log.Info("Counting products...")
 	// TODO: Cache this count value and update every X seconds, so we don't need to perform a full count on every page read.
 	// TODO: I want a full count here, but I think this is just returning the number of total records based on this seek, not the total # of orders.
-	count, err := h.repo.Count(seek)
+	count, err := h.repo.Count(&repository.PageSeekOptions{Direction: repository.SeekDirectionNone})
 	if err != nil {
 		logMsg := fmt.Sprintf("Error counting products: %s", err.Error())
 		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)

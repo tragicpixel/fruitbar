@@ -33,12 +33,12 @@ type OrdersServiceConfig struct {
 }
 
 const (
-	ordersAPIBaseRoute   = "/orders/"
+	ordersAPIBaseRoute   = "/orders"
 	ordersCreateAPIRoute = ordersAPIBaseRoute
 	ordersReadAPIRoute   = ordersAPIBaseRoute
 	ordersUpdateAPIRoute = ordersAPIBaseRoute
 	ordersDeleteAPIRoute = ordersAPIBaseRoute
-	ordersHealthAPIRoute = ordersAPIBaseRoute + "health"
+	ordersHealthAPIRoute = ordersAPIBaseRoute + "/health"
 )
 
 func (s *OrdersService) getOrdersEndpointOptions() cors.Options {
@@ -129,7 +129,7 @@ func NewOrdersService(config *OrdersServiceConfig) (*OrdersService, error) {
 func (s *OrdersService) NewOrdersServiceRouter(db *driver.DB) *mux.Router {
 	r := mux.NewRouter()
 
-	r.HandleFunc(productsAPIBaseRoute, cors.SendPreflightHeaders(s.getOrdersEndpointOptions(), nil)).Methods(http.MethodOptions)
+	r.HandleFunc(ordersAPIBaseRoute, cors.SendPreflightHeaders(s.getOrdersEndpointOptions(), nil)).Methods(http.MethodOptions)
 	// swagger:operation POST /orders/ orders createOrder
 	//
 	// Create a new order.
@@ -265,26 +265,6 @@ func (s *OrdersService) NewOrdersServiceRouter(db *driver.DB) *mux.Router {
 	return r
 }
 
-// SetupOrdersServiceDB checks that the database schema is ready for the authentication service.
-// If init is true, will create the tables if they do not already exist.
-func setupOrdersServiceDB(db *driver.DB, init bool) error {
-	log.Info("Setting up the orders service database...")
-	err := pgdriver.SetupTables(db, &models.Order{}, init)
-	if err != nil {
-		msg := "failed to set up the Orders model table" + err.Error()
-		log.Error(msg)
-		return errors.New(msg)
-	}
-	err = pgdriver.SetupTables(db, &models.Item{}, init)
-	if err != nil {
-		msg := "failed to set up the Items model table" + err.Error()
-		log.Error(msg)
-		return errors.New(msg)
-	}
-	log.Info("Successfully set up the database for the orders service")
-	return nil
-}
-
 // CheckHealth checks the health of the data entry service and writes a response in JSON to the user.
 // Always returns HTTP Status OK, even if the health check fails.
 func (s *OrdersService) CheckHealth(w http.ResponseWriter, r *http.Request) {
@@ -303,4 +283,24 @@ func (s *OrdersService) CheckHealth(w http.ResponseWriter, r *http.Request) {
 			json.WriteResponse(w, http.StatusOK, map[string]bool{"ok": true})
 		}
 	}
+}
+
+// SetupOrdersServiceDB checks that the database schema is ready for the authentication service.
+// If init is true, will create the tables if they do not already exist.
+func setupOrdersServiceDB(db *driver.DB, init bool) error {
+	log.Info("Setting up the orders service database...")
+	err := pgdriver.SetupTables(db, &models.Order{}, init)
+	if err != nil {
+		msg := "failed to set up the Orders model table" + err.Error()
+		log.Error(msg)
+		return errors.New(msg)
+	}
+	err = pgdriver.SetupTables(db, &models.Item{}, init)
+	if err != nil {
+		msg := "failed to set up the Items model table" + err.Error()
+		log.Error(msg)
+		return errors.New(msg)
+	}
+	log.Info("Successfully set up the database for the orders service")
+	return nil
 }

@@ -559,7 +559,7 @@ func (h *User) clientHasDeletePermsForID(w http.ResponseWriter, r *http.Request,
 // getUsersRangeStr returns a string representation of the range of the supplied products.
 func (h *User) getUsersRangeStr(w http.ResponseWriter, seek *repository.PageSeekOptions, users []*models.User) string {
 	log.Info("Counting users for users page read...")
-	count, err := h.repo.Count(seek)
+	count, err := h.repo.Count(&repository.PageSeekOptions{Direction: repository.SeekDirectionNone})
 	if err != nil {
 		logMsg := fmt.Sprintf("Error counting users: %s", err.Error())
 		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)

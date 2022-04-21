@@ -517,7 +517,7 @@ func (h *Order) clientHasDeletePermsForOrder(w http.ResponseWriter, r *http.Requ
 // getUsersRangeStr returns a string representation of the range of the supplied orders.
 func (h *Order) getOrdersRangeStr(w http.ResponseWriter, seek *repository.PageSeekOptions, orders []*models.Order) string {
 	log.Info("Counting orders...")
-	count, err := h.repo.Count(seek)
+	count, err := h.repo.Count(&repository.PageSeekOptions{Direction: repository.SeekDirectionNone})
 	if err != nil {
 		logMsg := fmt.Sprintf("Error counting orders: %s", err.Error())
 		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
@@ -528,6 +528,6 @@ func (h *Order) getOrdersRangeStr(w http.ResponseWriter, seek *repository.PageSe
 		startID = orders[0].ID
 		endID = orders[len(orders)-1].ID
 	}
-	rangeStr := fmt.Sprintf("orders%d-%d/%d", startID, endID, count)
+	rangeStr := fmt.Sprintf("orders=%d-%d/%d", startID, endID, count)
 	return rangeStr
 }

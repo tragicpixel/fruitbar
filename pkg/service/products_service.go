@@ -37,7 +37,7 @@ const (
 	productsReadAPIRoute   = productsAPIBaseRoute
 	productsUpdateAPIRoute = productsAPIBaseRoute
 	productsDeleteAPIRoute = productsAPIBaseRoute
-	productsHealthAPIRoute = productsAPIBaseRoute + "health"
+	productsHealthAPIRoute = productsAPIBaseRoute + "/health"
 )
 
 func (s *ProductsService) getProductsEndpointOptions() cors.Options {

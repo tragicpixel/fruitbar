@@ -270,7 +270,7 @@ func (s *OrdersService) NewOrdersServiceRouter(db *driver.DB) *mux.Router {
 	// responses:
 	//   '200':
 	//     description: The page max records limit was returned successfully.
-	r.HandleFunc(ordersHealthAPIRoute, s.getHealthCheckAPIHandler()).Methods(s.getHealthCheckAPIOptions().AllowedMethods...)
+	r.HandleFunc(ordersHealthAPIRoute, s.getPageMaxRecordLimitAPIHandler()).Methods(s.getPageMaxRecordLimitAPIOptions().AllowedMethods...)
 	// swagger:operation GET /orders/health orders checkHealth
 	//
 	// Checks the health of the service.

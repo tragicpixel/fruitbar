@@ -19,49 +19,52 @@ type User struct {
 	Role     string `json:"role"`
 }
 
-// PasswordFormatReqMsg returns a string containing all the formatting requirements for setting a password.
-func PasswordFormatReqMsg() string {
-	msg := fmt.Sprintf("Password must be between %d and %d characters long, ", passwordLengthMin, passwordLengthMax)
-	msg += "contain at least one digit, "
-	msg += "contain at least one of the following special characters: " + passwordValidSpecialChars
+// PasswordFmtReqMsg returns an array of strings containing all the formatting requirements for setting a password, where each item is a requirement.
+func PasswordFmtReqMsg() []string {
+	var msg []string
+	msg = append(msg,
+		fmt.Sprintf("Password must be between %d and %d characters long", passwordLengthMin, passwordLengthMax),
+		"Password must contain at least one digit",
+		"Password must contain at least one of the following special characters: "+passwordValidSpecialChars,
+	)
 	return msg
 }
 
 // IsValid checks if a User object is valid.
-func (u *User) IsValid() (bool, error) {
-	_, err := u.validateName()
+func (u *User) IsValid() error {
+	err := u.validateName()
 	if err != nil {
-		return false, err
+		return err
 	}
-	_, err = u.validatePassword()
+	err = u.validatePassword()
 	if err != nil {
-		return false, err
+		return err
 	}
-	_, err = roles.IsValid(u.Role)
+	err = roles.IsValid(u.Role)
 	if err != nil {
-		return false, err
+		return err
 	}
-	return true, nil
+	return nil
 }
 
 // ValidatePartialProductUpdate validates the supplied selected fields of the supplied product.
-func (u *User) ValidatePartialUserUpdate(selectedFields []string) (bool, error) {
+func (u *User) ValidatePartialUserUpdate(selectedFields []string) error {
 	var err error
 	// TODO: Use code generation tools to extract the names in the json annotation
 	for _, field := range selectedFields {
 		switch field {
 		case "name":
-			_, err = u.validateName()
+			err = u.validateName()
 		case "password":
-			_, err = u.validatePassword()
+			err = u.validatePassword()
 		case "role":
-			_, err = roles.IsValid(u.Role)
+			err = roles.IsValid(u.Role)
 		}
 		if err != nil {
-			return false, err
+			return err
 		}
 	}
-	return true, nil
+	return nil
 }
 
 const (
@@ -78,24 +81,24 @@ const (
 )
 
 // validateName checks if a user's current name is valid.
-func (u *User) validateName() (bool, error) {
+func (u *User) validateName() error {
 	length := len(u.Name)
 	if length > nameLengthMax {
-		return false, fmt.Errorf("name must be less than %d characters long", nameLengthMax)
+		return fmt.Errorf("name must be less than %d characters long", nameLengthMax)
 	} else if length < nameLengthMin {
-		return false, fmt.Errorf("name must be at least %d characters long", nameLengthMin)
+		return fmt.Errorf("name must be at least %d characters long", nameLengthMin)
 	} else {
-		return true, nil
+		return nil
 	}
 }
 
 // validatePassword checks if a user's currently set password (plain text) is valid.
-func (u *User) validatePassword() (bool, error) {
+func (u *User) validatePassword() error {
 	length := len(u.Password)
 	if length > passwordLengthMax {
-		return false, fmt.Errorf("password must be less than %d characters long", passwordLengthMax)
+		return fmt.Errorf("password must be less than %d characters long", passwordLengthMax)
 	} else if length < passwordLengthMin {
-		return false, fmt.Errorf("password must be at least %d characters long", passwordLengthMin)
+		return fmt.Errorf("password must be at least %d characters long", passwordLengthMin)
 	}
 
 	containsDigit := false
@@ -106,12 +109,12 @@ func (u *User) validatePassword() (bool, error) {
 		}
 	}
 	if !containsDigit {
-		return false, errors.New("password must contain at least one digit")
+		return errors.New("password must contain at least one digit")
 	}
 
 	if !strings.ContainsAny(u.Password, passwordValidSpecialChars) {
-		return false, errors.New("password must contain at least one of the following special characters: " + passwordValidSpecialChars)
+		return errors.New("password must contain at least one of the following special characters: " + passwordValidSpecialChars)
 	}
 
-	return true, nil
+	return nil
 }

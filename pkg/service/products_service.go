@@ -32,12 +32,13 @@ type ProductsServiceConfig struct {
 }
 
 const (
-	productsAPIBaseRoute   = "/products"
-	productsCreateAPIRoute = productsAPIBaseRoute
-	productsReadAPIRoute   = productsAPIBaseRoute
-	productsUpdateAPIRoute = productsAPIBaseRoute
-	productsDeleteAPIRoute = productsAPIBaseRoute
-	productsHealthAPIRoute = productsAPIBaseRoute + "/health"
+	productsAPIBaseRoute               = "/products"
+	productsCreateAPIRoute             = productsAPIBaseRoute
+	productsReadAPIRoute               = productsAPIBaseRoute
+	productsUpdateAPIRoute             = productsAPIBaseRoute
+	productsDeleteAPIRoute             = productsAPIBaseRoute
+	productsPageMaxRecordLimitAPIRoute = productsAPIBaseRoute + "/page-max-record-limit"
+	productsHealthAPIRoute             = productsAPIBaseRoute + "/health"
 )
 
 func (s *ProductsService) getProductsEndpointOptions() cors.Options {
@@ -47,35 +48,42 @@ func (s *ProductsService) getProductsEndpointOptions() cors.Options {
 		AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete},
 	}
 }
-func (s *ProductsService) getCreateAPICORSOptions() cors.Options {
+func (s *ProductsService) getCreateAPIOptions() cors.Options {
 	return cors.Options{
 		AllowedURL:     UI_URL,
 		APIName:        "Create Product",
 		AllowedMethods: []string{http.MethodPost},
 	}
 }
-func (s *ProductsService) getReadAPICORSOptions() cors.Options {
+func (s *ProductsService) getReadAPIOptions() cors.Options {
 	return cors.Options{
 		AllowedURL:     UI_URL,
 		APIName:        "Read Product",
 		AllowedMethods: []string{http.MethodGet},
 	}
 }
-func (s *ProductsService) getUpdateAPICORSOptions() cors.Options {
+func (s *ProductsService) getUpdateAPIOptions() cors.Options {
 	return cors.Options{
 		AllowedURL:     UI_URL,
 		APIName:        "Update Product",
 		AllowedMethods: []string{http.MethodPut},
 	}
 }
-func (s *ProductsService) getDeleteAPICORSOptions() cors.Options {
+func (s *ProductsService) getDeleteAPIOptions() cors.Options {
 	return cors.Options{
 		AllowedURL:     UI_URL,
 		APIName:        "Delete Product",
 		AllowedMethods: []string{http.MethodDelete},
 	}
 }
-func (s *ProductsService) getHealthCheckAPICORSOptions() cors.Options {
+func (s *ProductsService) getPageMaxRecordLimitAPIOptions() cors.Options {
+	return cors.Options{
+		AllowedURL:     UI_URL,
+		APIName:        "Page Max Record Limit",
+		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
+	}
+}
+func (s *ProductsService) getHealthCheckAPIOptions() cors.Options {
 	return cors.Options{
 		AllowedURL:     UI_URL,
 		APIName:        "Health Check",
@@ -84,19 +92,22 @@ func (s *ProductsService) getHealthCheckAPICORSOptions() cors.Options {
 }
 
 func (s *ProductsService) getCreateAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return cors.SendPreflightHeaders(s.getCreateAPICORSOptions(), s.UserHandler.IsAuthorized(s.UserHandler.HasRole(s.Handler.CreateProduct, roles.Admin)))
+	return cors.SendPreflightHeaders(s.getCreateAPIOptions(), s.UserHandler.IsAuthorized(s.UserHandler.HasRole(s.Handler.CreateProduct, roles.Admin)))
 }
 func (s *ProductsService) getReadAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return cors.SendPreflightHeaders(s.getReadAPICORSOptions(), s.UserHandler.IsAuthorized(s.Handler.GetProducts))
+	return cors.SendPreflightHeaders(s.getReadAPIOptions(), s.UserHandler.IsAuthorized(s.Handler.GetProducts))
 }
 func (s *ProductsService) getUpdateAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return cors.SendPreflightHeaders(s.getUpdateAPICORSOptions(), s.UserHandler.IsAuthorized(s.UserHandler.HasRole(s.Handler.UpdateProduct, roles.Admin)))
+	return cors.SendPreflightHeaders(s.getUpdateAPIOptions(), s.UserHandler.IsAuthorized(s.UserHandler.HasRole(s.Handler.UpdateProduct, roles.Admin)))
 }
 func (s *ProductsService) getDeleteAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return cors.SendPreflightHeaders(s.getDeleteAPICORSOptions(), s.UserHandler.IsAuthorized(s.UserHandler.HasRole(s.Handler.DeleteProduct, roles.Admin)))
+	return cors.SendPreflightHeaders(s.getDeleteAPIOptions(), s.UserHandler.IsAuthorized(s.UserHandler.HasRole(s.Handler.DeleteProduct, roles.Admin)))
+}
+func (s *ProductsService) getPageMaxRecordLimitAPIHandler() func(http.ResponseWriter, *http.Request) {
+	return cors.SendPreflightHeaders(s.getPageMaxRecordLimitAPIOptions(), s.Handler.GetPageMaxRecordLimit)
 }
 func (s *ProductsService) getHealthCheckAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return cors.SendPreflightHeaders(s.getHealthCheckAPICORSOptions(), s.CheckHealth)
+	return cors.SendPreflightHeaders(s.getHealthCheckAPIOptions(), s.CheckHealth)
 }
 
 // NewProductsService creates a new instance of a product listing service.
@@ -162,7 +173,7 @@ func (s *ProductsService) NewProductsServiceRouter(db *driver.DB) *mux.Router {
 	//   '500':
 	//     description: Internal server error.
 	//     "$ref": "#/responses/jsonResponse"
-	r.HandleFunc(productsCreateAPIRoute, s.getCreateAPIHandler()).Methods(s.getCreateAPICORSOptions().AllowedMethods...)
+	r.HandleFunc(productsCreateAPIRoute, s.getCreateAPIHandler()).Methods(s.getCreateAPIOptions().AllowedMethods...)
 	// swagger:operation GET /products products getProduct
 	//
 	// Get a product by ID, or a paginated listing of all products.
@@ -181,7 +192,7 @@ func (s *ProductsService) NewProductsServiceRouter(db *driver.DB) *mux.Router {
 	//   '200':
 	//     description: Successfully retrieved a product.
 	//     "$ref": "#/responses/jsonResponse"
-	r.HandleFunc(productsReadAPIRoute, s.getReadAPIHandler()).Methods(s.getReadAPICORSOptions().AllowedMethods...)
+	r.HandleFunc(productsReadAPIRoute, s.getReadAPIHandler()).Methods(s.getReadAPIOptions().AllowedMethods...)
 	// swagger:operation PUT /products products updateProduct
 	//
 	// Update an existing product.
@@ -215,7 +226,7 @@ func (s *ProductsService) NewProductsServiceRouter(db *driver.DB) *mux.Router {
 	//   '500':
 	//     description: Internal server error.
 	//     "$ref": "#/responses/jsonResponse"
-	r.HandleFunc(productsUpdateAPIRoute, s.getUpdateAPIHandler()).Methods(s.getUpdateAPICORSOptions().AllowedMethods...)
+	r.HandleFunc(productsUpdateAPIRoute, s.getUpdateAPIHandler()).Methods(s.getUpdateAPIOptions().AllowedMethods...)
 	// swagger:operation DELETE /products products deleteProduct
 	//
 	// Delete an existing product.
@@ -248,7 +259,16 @@ func (s *ProductsService) NewProductsServiceRouter(db *driver.DB) *mux.Router {
 	//   '500':
 	//     description: Internal server error.
 	//     "$ref": "#/responses/jsonResponse"
-	r.HandleFunc(productsDeleteAPIRoute, s.getDeleteAPIHandler()).Methods(s.getDeleteAPICORSOptions().AllowedMethods...)
+	r.HandleFunc(productsDeleteAPIRoute, s.getDeleteAPIHandler()).Methods(s.getDeleteAPIOptions().AllowedMethods...)
+	// swagger:operation GET /products/page-max-record-limit products getPageMaxRecordLimit
+	//
+	// Returns an integer that is the maximum number of records that can be returned in one page.
+	//
+	// ---
+	// responses:
+	//   '200':
+	//     description: The page max records limit was returned successfully.
+	r.HandleFunc(productsPageMaxRecordLimitAPIRoute, s.getPageMaxRecordLimitAPIHandler()).Methods(s.getPageMaxRecordLimitAPIOptions().AllowedMethods...)
 	// swagger:operation GET /products/health products checkHealth
 	//
 	// Checks the health of the service.
@@ -258,7 +278,7 @@ func (s *ProductsService) NewProductsServiceRouter(db *driver.DB) *mux.Router {
 	//   '200':
 	//     description: The health check was completed.
 	//     "$ref": "#/responses/healthCheckResponse"
-	r.HandleFunc(productsHealthAPIRoute, s.getHealthCheckAPIHandler()).Methods(s.getHealthCheckAPICORSOptions().AllowedMethods...)
+	r.HandleFunc(productsHealthAPIRoute, s.getHealthCheckAPIHandler()).Methods(s.getHealthCheckAPIOptions().AllowedMethods...)
 
 	return r
 }

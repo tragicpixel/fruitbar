@@ -51,7 +51,7 @@ func (h *Product) CreateProduct(w http.ResponseWriter, r *http.Request) {
 		json.WriteErrorResponse(w, response.Error.Code, response.Error.Message)
 		return
 	}
-	_, err := product.IsValid()
+	err := product.IsValid()
 	if err != nil {
 		json.WriteErrorResponse(w, http.StatusBadRequest, "Product "+validationFailedErrMsgPrefix+err.Error())
 		return
@@ -150,6 +150,11 @@ func (h *Product) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 	json.WriteResponse(w, http.StatusOK, json.Response{})
 }
 
+// GetPageMaxRecordLimit always sends a response containing the maximum number of records that can be returned in one page.
+func (h *Product) GetPageMaxRecordLimit(w http.ResponseWriter, r *http.Request) {
+	json.WriteResponse(w, http.StatusOK, json.Response{Data: readProductsPageMaxRecordLimit})
+}
+
 // getSingleOrder sends a response to the supplied http response writer containing the requested product, based on the supplied http request.
 func (h *Product) getSingleProduct(w http.ResponseWriter, r *http.Request) {
 	id, err := httputils.GetQueryParamAsUint(r, idParam)
@@ -176,13 +181,13 @@ func (h *Product) getSingleProduct(w http.ResponseWriter, r *http.Request) {
 
 // getProductsPage sends a response to the supplied http response writer containing the requested page of products, based on the supplied http request.
 func (h *Product) getProductsPage(w http.ResponseWriter, r *http.Request) {
-	seek, err := utils.GetPageSeekOptions(r, readPageMaxLimit)
+	seek, err := utils.GetPageSeekOptions(r, readProductsPageMaxRecordLimit)
 	if err != nil {
 		json.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	log.Info(fmt.Sprintf("Reading %d products (max %d)...", seek.RecordLimit, readPageMaxLimit))
+	log.Info(fmt.Sprintf("Reading %d products (max %d)...", seek.RecordLimit, readProductsPageMaxRecordLimit))
 	var products []*models.Product
 	products, err = h.repo.Fetch(seek)
 	if err != nil {
@@ -204,7 +209,7 @@ func (h *Product) partiallyUpdateProduct(w http.ResponseWriter, r *http.Request,
 	fieldsStr := r.URL.Query().Get(fieldsParam)
 	fields := strings.Split(fieldsStr, ",")
 
-	_, err := product.PartialUpdateIsValid(fields)
+	err := product.PartialUpdateIsValid(fields)
 	if err != nil {
 		json.WriteErrorResponse(w, http.StatusBadRequest, "Product "+validationFailedErrMsgPrefix+err.Error())
 		return
@@ -225,7 +230,7 @@ func (h *Product) partiallyUpdateProduct(w http.ResponseWriter, r *http.Request,
 // fullyUpdateProduct updates all of the fields of the supplied product
 // and sends a response to the supplied http response writer containing the updated product in JSON.
 func (h *Product) fullyUpdateProduct(w http.ResponseWriter, r *http.Request, product models.Product) {
-	_, err := product.IsValid()
+	err := product.IsValid()
 	if err != nil {
 		json.WriteErrorResponse(w, http.StatusBadRequest, "Product "+validationFailedErrMsgPrefix+err.Error())
 		return
@@ -252,7 +257,7 @@ func (h *Product) getClientAuthInfo(w http.ResponseWriter, r *http.Request) *mod
 		json.WriteErrorResponse(w, http.StatusBadRequest, unauthorizedErrMsg, logMsg)
 		return nil
 	}
-	_, err = roles.IsValid(client.UserRole)
+	err = roles.IsValid(client.UserRole)
 	if err != nil {
 		logMsg := unauthorizedErrMsgPrefix + err.Error()
 		json.WriteErrorResponse(w, http.StatusUnauthorized, unauthorizedErrMsg, logMsg)

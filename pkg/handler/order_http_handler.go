@@ -55,7 +55,7 @@ func (h *Order) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := models.ValidateNewOrder(&order)
+	err := models.ValidateNewOrder(&order)
 	if err != nil {
 		json.WriteErrorResponse(w, http.StatusBadRequest, "Order "+validationFailedErrMsgPrefix+err.Error())
 		return
@@ -187,6 +187,11 @@ func (h *Order) DeleteOrder(w http.ResponseWriter, r *http.Request) {
 	json.WriteResponse(w, http.StatusOK, json.Response{})
 }
 
+// GetPageMaxRecordLimit always sends a response containing the maximum number of records that can be returned in one page.
+func (h *Order) GetPageMaxRecordLimit(w http.ResponseWriter, r *http.Request) {
+	json.WriteResponse(w, http.StatusOK, json.Response{Data: readOrdersPageMaxRecordLimit})
+}
+
 // getSingleOrder sends a response to the supplied http response writer containing the requested order, based on the supplied http request.
 // If read access to a specific order is forbidden, an error will be sent.
 func (h *Order) getSingleOrder(w http.ResponseWriter, r *http.Request) {
@@ -213,6 +218,14 @@ func (h *Order) getSingleOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	items, err := h.itemsRepo.GetByOrderID(id)
+	if err != nil {
+		logMsg := fmt.Sprintf("Error retrieving items for order (id: %d): %s", id, err.Error())
+		json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+		return
+	}
+	order.Items = items
+
 	response := json.Response{Data: []*models.Order{order}}
 	json.WriteResponse(w, http.StatusOK, response)
 }
@@ -221,12 +234,12 @@ func (h *Order) getSingleOrder(w http.ResponseWriter, r *http.Request) {
 // If read access to a specific order is forbidden, it won't be included in the response and there will be no error message. (fail silently)
 func (h *Order) getOrdersPage(w http.ResponseWriter, r *http.Request) {
 	var seek *repository.PageSeekOptions
-	seek, err := utils.GetPageSeekOptions(r, readPageMaxLimit)
+	seek, err := utils.GetPageSeekOptions(r, readOrdersPageMaxRecordLimit)
 	if err != nil {
 		json.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	log.Info(fmt.Sprintf("Selecting %d orders (max %d)...", seek.RecordLimit, readPageMaxLimit))
+	log.Info(fmt.Sprintf("Selecting %d orders (max %d)...", seek.RecordLimit, readOrdersPageMaxRecordLimit))
 	var orders []*models.Order
 	orders, err = h.repo.Fetch(seek)
 	if err != nil {
@@ -237,6 +250,16 @@ func (h *Order) getOrdersPage(w http.ResponseWriter, r *http.Request) {
 
 	if orders = h.getOrdersReadableByClient(w, r, orders); orders == nil {
 		return
+	}
+
+	for _, order := range orders {
+		items, err := h.itemsRepo.GetByOrderID(order.ID)
+		if err != nil {
+			logMsg := fmt.Sprintf("Error retrieving items for order (id: %d): %s", order.ID, err.Error())
+			json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
+			return
+		}
+		order.Items = items
 	}
 
 	rangeStr := h.getOrdersRangeStr(w, seek, orders)
@@ -252,7 +275,7 @@ func (h *Order) partiallyUpdateOrder(w http.ResponseWriter, r *http.Request, ord
 	fieldsStr := r.URL.Query().Get(fieldsParam)
 	fields := strings.Split(fieldsStr, ",")
 
-	_, err := models.ValidateOrderUpdate(&order, fields)
+	err := models.ValidateOrderUpdate(&order, fields)
 	if err != nil {
 		json.WriteErrorResponse(w, http.StatusBadRequest, "Order "+validationFailedErrMsgPrefix+err.Error())
 		return
@@ -280,7 +303,7 @@ func (h *Order) partiallyUpdateOrder(w http.ResponseWriter, r *http.Request, ord
 				match = true
 				item.ID = existingItem.ID
 				log.Info(fmt.Sprintf("Updating item (id: %d) to %+v", item.ID, item))
-				_, err := h.itemsRepo.Update(&item, []string{})
+				_, err := h.itemsRepo.Update(item, []string{})
 				if err != nil {
 					logMsg := fmt.Sprintf("Error updating item (id: %d): %s", item.ID, err.Error())
 					json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
@@ -292,7 +315,7 @@ func (h *Order) partiallyUpdateOrder(w http.ResponseWriter, r *http.Request, ord
 		if !match {
 			log.Info(fmt.Sprintf("Inserting new item: %+v", item))
 			item.OrderID = order.ID
-			id, err := h.itemsRepo.Create(&item)
+			id, err := h.itemsRepo.Create(item)
 			if err != nil {
 				logMsg := fmt.Sprintf("Error inserting item: %s", err.Error())
 				json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
@@ -310,7 +333,7 @@ func (h *Order) partiallyUpdateOrder(w http.ResponseWriter, r *http.Request, ord
 // Assumes permission check has already been performed.
 // Note: All items for the given order will be deleted, and the items included in the updated order will be created.
 func (h *Order) fullyUpdateOrder(w http.ResponseWriter, r *http.Request, order models.Order) {
-	_, err := models.ValidateOrder(&order)
+	err := models.ValidateOrder(&order)
 	if err != nil {
 		json.WriteErrorResponse(w, http.StatusBadRequest, "Order "+validationFailedErrMsgPrefix+err.Error())
 		return
@@ -343,7 +366,7 @@ func (h *Order) fullyUpdateOrder(w http.ResponseWriter, r *http.Request, order m
 	}
 	for _, item := range order.Items {
 		log.Info(fmt.Sprintf("Inserting new item for order (id: %d)...", order.ID))
-		id, err := h.itemsRepo.Create(&item)
+		id, err := h.itemsRepo.Create(item)
 		if err != nil {
 			logMsg := fmt.Sprintf("couldn't create an item for a full order update: %s", err.Error())
 			json.WriteErrorResponse(w, http.StatusInternalServerError, internalServerErrMsg, logMsg)
@@ -357,7 +380,7 @@ func (h *Order) fullyUpdateOrder(w http.ResponseWriter, r *http.Request, order m
 }
 
 // itemsAreValid validates whether the supplied items are valid.
-func (h *Order) itemsAreValid(items []models.Item) error {
+func (h *Order) itemsAreValid(items []*models.Item) error {
 	_, err := h.validateProductIDs(items)
 	if err != nil {
 		return err
@@ -370,7 +393,7 @@ func (h *Order) itemsAreValid(items []models.Item) error {
 }
 
 // validateProductIDs checks that the product ID values in the supplied set of items, correspond to products that actually exist.
-func (h *Order) validateProductIDs(items []models.Item) (bool, error) {
+func (h *Order) validateProductIDs(items []*models.Item) (bool, error) {
 	ids := make(map[uint]bool, len(items))
 	for _, item := range items {
 		// TODO: Rewrite this so that only one database call is made -> modify Exists() to take var args and send all the IDs at once
@@ -392,7 +415,7 @@ func (h *Order) validateProductIDs(items []models.Item) (bool, error) {
 }
 
 // quantityIsValid validates whether the quantity values of the supplied items are all valid.
-func (h *Order) quantityIsValid(items []models.Item) (bool, error) {
+func (h *Order) quantityIsValid(items []*models.Item) (bool, error) {
 	for _, item := range items {
 		if item.Quantity <= 0 {
 			return false, fmt.Errorf("an item's quantity must be greater than zero. got %d", item.Quantity)
@@ -424,7 +447,7 @@ func (h *Order) getClientAuthInfo(w http.ResponseWriter, r *http.Request) *model
 		json.WriteErrorResponse(w, http.StatusBadRequest, unauthorizedErrMsg, logMsg)
 		return nil
 	}
-	_, err = roles.IsValid(client.UserRole)
+	err = roles.IsValid(client.UserRole)
 	if err != nil {
 		logMsg := unauthorizedErrMsgPrefix + err.Error()
 		json.WriteErrorResponse(w, http.StatusUnauthorized, unauthorizedErrMsg, logMsg)

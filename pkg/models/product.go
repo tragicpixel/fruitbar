@@ -22,81 +22,81 @@ type Product struct {
 	NumInStock int `json:"numInStock"`
 }
 
-func (p *Product) IsValid() (bool, error) {
+func (p *Product) IsValid() error {
 	errMsgPrefix := "failed to validate product: "
-	_, err := p.nameIsValid()
+	err := p.nameIsValid()
 	if err != nil {
-		return false, errors.New(errMsgPrefix + err.Error())
+		return errors.New(errMsgPrefix + err.Error())
 	}
-	_, err = p.symbolIsValid()
+	err = p.symbolIsValid()
 	if err != nil {
-		return false, errors.New(errMsgPrefix + err.Error())
+		return errors.New(errMsgPrefix + err.Error())
 	}
-	_, err = p.priceIsValid()
+	err = p.priceIsValid()
 	if err != nil {
-		return false, errors.New(errMsgPrefix + err.Error())
+		return errors.New(errMsgPrefix + err.Error())
 	}
-	_, err = p.numInStockIsValid()
+	err = p.numInStockIsValid()
 	if err != nil {
-		return false, errors.New(errMsgPrefix + err.Error())
+		return errors.New(errMsgPrefix + err.Error())
 	}
-	return true, nil
+	return nil
 }
 
-func (p *Product) PartialUpdateIsValid(selectedFields []string) (bool, error) {
+func (p *Product) PartialUpdateIsValid(selectedFields []string) error {
 	var err error
 	// TODO: Use code generation tools to extract the names of the json annotations and use them here
 	for _, field := range selectedFields {
 		switch field {
 		case "name":
-			_, err = p.nameIsValid()
+			err = p.nameIsValid()
 		case "symbol":
-			_, err = p.symbolIsValid()
+			err = p.symbolIsValid()
 		case "price":
-			_, err = p.priceIsValid()
+			err = p.priceIsValid()
 		case "numInStock":
-			_, err = p.numInStockIsValid()
+			err = p.numInStockIsValid()
 		default:
 			err = fmt.Errorf("field name is invalid: %s", field)
 		}
 		if err != nil {
-			return false, err
+			return err
 		}
 	}
-	return true, nil
+	return nil
 }
 
-func (p *Product) nameIsValid() (bool, error) {
+func (p *Product) nameIsValid() error {
 	if len(p.Name) < 1 {
-		return false, errors.New("name must be at least 1 character")
+		return errors.New("name must be at least 1 character")
 	}
-	return true, nil
+	return nil
 }
 
-func (p *Product) symbolIsValid() (bool, error) {
+func (p *Product) symbolIsValid() error {
 	errMsg := "symbol must be exactly 1 rune"
 	length := utf8.RuneCountInString(p.Symbol)
 	if length > 1 {
-		return false, errors.New(errMsg)
+		return errors.New(errMsg)
 	} else if length < 1 {
-		return false, errors.New(errMsg)
+		return errors.New(errMsg)
 	} else {
-		return true, nil
+		return nil
 	}
 }
 
-func (p *Product) priceIsValid() (bool, error) {
+func (p *Product) priceIsValid() error {
 	if p.Price <= 0 {
-		return false, fmt.Errorf("price must be greater than zero, got %.2f", p.Price)
+		return fmt.Errorf("price must be greater than zero, got %.2f", p.Price)
 	} else {
-		return true, nil
+		return nil
 	}
 }
 
-func (p *Product) numInStockIsValid() (bool, error) {
+func (p *Product) numInStockIsValid() error {
 	if p.NumInStock < 0 {
-		return false, fmt.Errorf("numInStock must be greater than or equal to zero, got %d", p.NumInStock)
+		return fmt.Errorf("numInStock must be greater than or equal to zero, got %d", p.NumInStock)
 	} else {
-		return true, nil
+		return nil
 	}
 }

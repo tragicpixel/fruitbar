@@ -43,7 +43,7 @@ func (h *User) CreateUser(w http.ResponseWriter, r *http.Request) {
 		json.WriteErrorResponse(w, response.Error.Code, response.Error.Message)
 		return
 	}
-	_, err := user.IsValid()
+	err := user.IsValid()
 	if err != nil {
 		json.WriteErrorResponse(w, http.StatusBadRequest, "User "+validationFailedErrMsgPrefix+err.Error())
 		return
@@ -148,10 +148,20 @@ func (h *User) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	json.WriteResponse(w, http.StatusOK, json.Response{})
 }
 
-// GetPasswordFormatMessage always sends a response containing a message explaining the constraints applied when setting a new password.
+// GetPasswordFormatMessage always sends a response containing the formatting requirements for a password.
 // This is the single source of truth for information about the expected format of a new password.
 func (h *User) GetPasswordFormatMessage(w http.ResponseWriter, r *http.Request) {
-	json.WriteResponse(w, http.StatusOK, json.Response{Data: models.PasswordFormatReqMsg()})
+	json.WriteResponse(w, http.StatusOK, json.Response{Data: models.PasswordFmtReqMsg()})
+}
+
+// GetRolesList always sends a response with a message containing all of the valid roles for a user.
+func (h *User) GetRolesList(w http.ResponseWriter, r *http.Request) {
+	json.WriteResponse(w, http.StatusOK, json.Response{Data: roles.ValidRoles()})
+}
+
+// GetPageMaxRecordLimit always sends a response containing the maximum number of records that can be returned in one page.
+func (h *User) GetPageMaxRecordLimit(w http.ResponseWriter, r *http.Request) {
+	json.WriteResponse(w, http.StatusOK, json.Response{Data: readUsersPageMaxRecordLimit})
 }
 
 // Login attempts to authorize a user based on the supplied credentials (in the http request), and returns a message in JSON on error, or a JSON Web Token on success.
@@ -307,13 +317,13 @@ func (h *User) getSingleUser(w http.ResponseWriter, r *http.Request) {
 // Sends a response in json to the supplied http ResponseWriter.
 func (h *User) getUsersPage(w http.ResponseWriter, r *http.Request) {
 	var seek *repository.PageSeekOptions
-	seek, err := utils.GetPageSeekOptions(r, readPageMaxLimit)
+	seek, err := utils.GetPageSeekOptions(r, readUsersPageMaxRecordLimit)
 	if err != nil {
 		json.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	log.Info(fmt.Sprintf("Reading %d users (max %d)...", seek.RecordLimit, readPageMaxLimit))
+	log.Info(fmt.Sprintf("Reading %d users (max %d)...", seek.RecordLimit, readUsersPageMaxRecordLimit))
 	var users []*models.User
 	users, err = h.repo.Fetch(seek)
 	if err != nil {
@@ -344,7 +354,7 @@ func (h *User) partiallyUpdateUser(w http.ResponseWriter, r *http.Request, user 
 	fieldsStr := r.URL.Query().Get(fieldsParam)
 	fields := strings.Split(fieldsStr, ",")
 
-	_, err := user.ValidatePartialUserUpdate(fields)
+	err := user.ValidatePartialUserUpdate(fields)
 	if err != nil {
 		json.WriteErrorResponse(w, http.StatusBadRequest, "User "+validationFailedErrMsgPrefix+err.Error())
 		return
@@ -375,7 +385,7 @@ func (h *User) partiallyUpdateUser(w http.ResponseWriter, r *http.Request, user 
 // fullyUpdateUser updates all of the fields of the supplied user
 // and sends a response to the supplied http response writer containing the updated user in JSON.
 func (h *User) fullyUpdateUser(w http.ResponseWriter, r *http.Request, user models.User) {
-	_, err := user.IsValid()
+	err := user.IsValid()
 	if err != nil {
 		json.WriteErrorResponse(w, http.StatusBadRequest, "User "+validationFailedErrMsgPrefix+err.Error())
 		return
@@ -409,7 +419,7 @@ func (h *User) getClientAuthInfo(w http.ResponseWriter, r *http.Request) *models
 		json.WriteErrorResponse(w, http.StatusBadRequest, unauthorizedErrMsg, logMsg)
 		return nil
 	}
-	_, err = roles.IsValid(client.UserRole)
+	err = roles.IsValid(client.UserRole)
 	if err != nil {
 		logMsg := unauthorizedErrMsgPrefix + err.Error()
 		json.WriteErrorResponse(w, http.StatusUnauthorized, unauthorizedErrMsg, logMsg)

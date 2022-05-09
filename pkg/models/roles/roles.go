@@ -48,11 +48,11 @@ func ValidRolesMsg() string {
 }
 
 // IsValid determines if the supplied role is a valid role ID.
-func IsValid(role string) (bool, error) {
+func IsValid(role string) error {
 	for _, validRole := range ValidRoles() {
 		if role == validRole {
-			return true, nil
+			return nil
 		}
 	}
-	return false, fmt.Errorf("role is invalid, expected one of: %s got %s", ValidRolesMsg(), role)
+	return fmt.Errorf("role is invalid, expected one of: %s got %s", ValidRolesMsg(), role)
 }

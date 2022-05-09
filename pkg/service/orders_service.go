@@ -33,12 +33,13 @@ type OrdersServiceConfig struct {
 }
 
 const (
-	ordersAPIBaseRoute   = "/orders"
-	ordersCreateAPIRoute = ordersAPIBaseRoute
-	ordersReadAPIRoute   = ordersAPIBaseRoute
-	ordersUpdateAPIRoute = ordersAPIBaseRoute
-	ordersDeleteAPIRoute = ordersAPIBaseRoute
-	ordersHealthAPIRoute = ordersAPIBaseRoute + "/health"
+	ordersAPIBaseRoute               = "/orders"
+	ordersCreateAPIRoute             = ordersAPIBaseRoute
+	ordersReadAPIRoute               = ordersAPIBaseRoute
+	ordersUpdateAPIRoute             = ordersAPIBaseRoute
+	ordersDeleteAPIRoute             = ordersAPIBaseRoute
+	ordersPageMaxRecordLimitAPIRoute = ordersAPIBaseRoute + "/page-max-record-limit"
+	ordersHealthAPIRoute             = ordersAPIBaseRoute + "/health"
 )
 
 func (s *OrdersService) getOrdersEndpointOptions() cors.Options {
@@ -48,35 +49,42 @@ func (s *OrdersService) getOrdersEndpointOptions() cors.Options {
 		AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete},
 	}
 }
-func (s *OrdersService) getCreateAPICORSOptions() cors.Options {
+func (s *OrdersService) getCreateAPIOptions() cors.Options {
 	return cors.Options{
 		AllowedURL:     UI_URL,
 		APIName:        "Create Order",
 		AllowedMethods: []string{http.MethodPost},
 	}
 }
-func (s *OrdersService) getReadAPICORSOptions() cors.Options {
+func (s *OrdersService) getReadAPIOptions() cors.Options {
 	return cors.Options{
 		AllowedURL:     UI_URL,
 		APIName:        "Read Order",
 		AllowedMethods: []string{http.MethodGet},
 	}
 }
-func (s *OrdersService) getUpdateAPICORSOptions() cors.Options {
+func (s *OrdersService) getUpdateAPIOptions() cors.Options {
 	return cors.Options{
 		AllowedURL:     UI_URL,
 		APIName:        "Update Order",
 		AllowedMethods: []string{http.MethodPut},
 	}
 }
-func (s *OrdersService) getDeleteAPICORSOptions() cors.Options {
+func (s *OrdersService) getDeleteAPIOptions() cors.Options {
 	return cors.Options{
 		AllowedURL:     UI_URL,
 		APIName:        "Delete Order",
 		AllowedMethods: []string{http.MethodDelete},
 	}
 }
-func (s *OrdersService) getHealthCheckAPICORSOptions() cors.Options {
+func (s *OrdersService) getPageMaxRecordLimitAPIOptions() cors.Options {
+	return cors.Options{
+		AllowedURL:     UI_URL,
+		APIName:        "Page Max Record Limit",
+		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
+	}
+}
+func (s *OrdersService) getHealthCheckAPIOptions() cors.Options {
 	return cors.Options{
 		AllowedURL:     UI_URL,
 		APIName:        "Health Check",
@@ -85,19 +93,22 @@ func (s *OrdersService) getHealthCheckAPICORSOptions() cors.Options {
 }
 
 func (s *OrdersService) getCreateAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return cors.SendPreflightHeaders(s.getCreateAPICORSOptions(), s.UserHandler.IsAuthorized(s.Handler.CreateOrder))
+	return cors.SendPreflightHeaders(s.getCreateAPIOptions(), s.UserHandler.IsAuthorized(s.Handler.CreateOrder))
 }
 func (s *OrdersService) getReadAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return cors.SendPreflightHeaders(s.getReadAPICORSOptions(), s.UserHandler.IsAuthorized(s.Handler.GetOrders))
+	return cors.SendPreflightHeaders(s.getReadAPIOptions(), s.UserHandler.IsAuthorized(s.Handler.GetOrders))
 }
 func (s *OrdersService) getUpdateAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return cors.SendPreflightHeaders(s.getUpdateAPICORSOptions(), s.UserHandler.IsAuthorized(s.Handler.UpdateOrder))
+	return cors.SendPreflightHeaders(s.getUpdateAPIOptions(), s.UserHandler.IsAuthorized(s.Handler.UpdateOrder))
 }
 func (s *OrdersService) getDeleteAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return cors.SendPreflightHeaders(s.getDeleteAPICORSOptions(), s.UserHandler.IsAuthorized(s.Handler.DeleteOrder))
+	return cors.SendPreflightHeaders(s.getDeleteAPIOptions(), s.UserHandler.IsAuthorized(s.Handler.DeleteOrder))
+}
+func (s *OrdersService) getPageMaxRecordLimitAPIHandler() func(http.ResponseWriter, *http.Request) {
+	return cors.SendPreflightHeaders(s.getPageMaxRecordLimitAPIOptions(), s.Handler.GetPageMaxRecordLimit)
 }
 func (s *OrdersService) getHealthCheckAPIHandler() func(http.ResponseWriter, *http.Request) {
-	return cors.SendPreflightHeaders(s.getHealthCheckAPICORSOptions(), s.CheckHealth)
+	return cors.SendPreflightHeaders(s.getHealthCheckAPIOptions(), s.CheckHealth)
 }
 
 // NewOrdersService creates a new instance of a data entry service.
@@ -164,7 +175,7 @@ func (s *OrdersService) NewOrdersServiceRouter(db *driver.DB) *mux.Router {
 	//   '500':
 	//     description: Internal server error.
 	//     "$ref": "#/responses/jsonResponse"
-	r.HandleFunc(ordersCreateAPIRoute, s.getCreateAPIHandler()).Methods(s.getCreateAPICORSOptions().AllowedMethods...)
+	r.HandleFunc(ordersCreateAPIRoute, s.getCreateAPIHandler()).Methods(s.getCreateAPIOptions().AllowedMethods...)
 	// swagger:operation GET /orders/ orders getOrder
 	//
 	// Get an order by ID, or a paginated listing of all orders.
@@ -183,7 +194,7 @@ func (s *OrdersService) NewOrdersServiceRouter(db *driver.DB) *mux.Router {
 	//   '200':
 	//     description: Successfully retrieved an order.
 	//     "$ref": "#/responses/jsonResponse"
-	r.HandleFunc(ordersReadAPIRoute, s.getReadAPIHandler()).Methods(s.getReadAPICORSOptions().AllowedMethods...)
+	r.HandleFunc(ordersReadAPIRoute, s.getReadAPIHandler()).Methods(s.getReadAPIOptions().AllowedMethods...)
 	// swagger:operation PUT /orders/ orders updateOrder
 	//
 	// Update an existing order.
@@ -217,7 +228,7 @@ func (s *OrdersService) NewOrdersServiceRouter(db *driver.DB) *mux.Router {
 	//   '500':
 	//     description: Internal server error.
 	//     "$ref": "#/responses/jsonResponse"
-	r.HandleFunc(ordersUpdateAPIRoute, s.getUpdateAPIHandler()).Methods(s.getUpdateAPICORSOptions().AllowedMethods...)
+	r.HandleFunc(ordersUpdateAPIRoute, s.getUpdateAPIHandler()).Methods(s.getUpdateAPIOptions().AllowedMethods...)
 	// swagger:operation DELETE /orders/ orders deleteOrder
 	//
 	// Delete an existing order.
@@ -250,7 +261,16 @@ func (s *OrdersService) NewOrdersServiceRouter(db *driver.DB) *mux.Router {
 	//   '500':
 	//     description: Internal server error.
 	//     "$ref": "#/responses/jsonResponse"
-	r.HandleFunc(ordersDeleteAPIRoute, s.getDeleteAPIHandler()).Methods(s.getDeleteAPICORSOptions().AllowedMethods...)
+	r.HandleFunc(ordersDeleteAPIRoute, s.getDeleteAPIHandler()).Methods(s.getDeleteAPIOptions().AllowedMethods...)
+	// swagger:operation GET /orders/page-max-record-limit orders getPageMaxRecordLimit
+	//
+	// Returns an integer that is the maximum number of records that can be returned in one page.
+	//
+	// ---
+	// responses:
+	//   '200':
+	//     description: The page max records limit was returned successfully.
+	r.HandleFunc(ordersHealthAPIRoute, s.getHealthCheckAPIHandler()).Methods(s.getHealthCheckAPIOptions().AllowedMethods...)
 	// swagger:operation GET /orders/health orders checkHealth
 	//
 	// Checks the health of the service.
@@ -260,7 +280,7 @@ func (s *OrdersService) NewOrdersServiceRouter(db *driver.DB) *mux.Router {
 	//   '200':
 	//     description: The health check was completed.
 	//     "$ref": "#/responses/healthCheckResponse"
-	r.HandleFunc(ordersHealthAPIRoute, s.getHealthCheckAPIHandler()).Methods(s.getHealthCheckAPICORSOptions().AllowedMethods...)
+	r.HandleFunc(ordersHealthAPIRoute, s.getHealthCheckAPIHandler()).Methods(s.getHealthCheckAPIOptions().AllowedMethods...)
 
 	return r
 }

@@ -14,23 +14,23 @@ type Item struct {
 	Quantity  int  `json:"quantity"`
 }
 
-func (i *Item) ValidateOrderID() (bool, error) {
+func (i *Item) ValidateOrderID() error {
 	if i.OrderID <= 0 {
-		return false, errors.New("orderid must be greater than zero")
+		return errors.New("orderid must be greater than zero")
 	}
-	return true, nil
+	return nil
 }
 
-func (i *Item) ValidateProductID() (bool, error) {
+func (i *Item) ValidateProductID() error {
 	if i.ProductID <= 0 {
-		return false, errors.New("productid must be greater than zero")
+		return errors.New("productid must be greater than zero")
 	}
-	return true, nil
+	return nil
 }
 
-func (i *Item) ValidateQuantity() (bool, error) {
+func (i *Item) ValidateQuantity() error {
 	if i.Quantity <= 0 {
-		return false, errors.New("quantity must be greater than zero")
+		return errors.New("quantity must be greater than zero")
 	}
-	return true, nil
+	return nil
 }

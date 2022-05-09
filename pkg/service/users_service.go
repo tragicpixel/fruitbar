@@ -30,14 +30,16 @@ type UsersServiceConfig struct {
 }
 
 const (
-	usersAPIBaseRoute           = "/users"
-	usersCreateAPIRoute         = usersAPIBaseRoute
-	usersReadAPIRoute           = usersAPIBaseRoute
-	usersUpdateAPIRoute         = usersAPIBaseRoute
-	usersDeleteAPIRoute         = usersAPIBaseRoute
-	usersLoginAPIRoute          = usersAPIBaseRoute + "/login"
-	usersPasswordFormatAPIRoute = usersAPIBaseRoute + "/password-format"
-	usersHealthAPIRoute         = usersAPIBaseRoute + "/health"
+	usersAPIBaseRoute               = "/users"
+	usersCreateAPIRoute             = usersAPIBaseRoute
+	usersReadAPIRoute               = usersAPIBaseRoute
+	usersUpdateAPIRoute             = usersAPIBaseRoute
+	usersDeleteAPIRoute             = usersAPIBaseRoute
+	usersLoginAPIRoute              = usersAPIBaseRoute + "/login"
+	usersPasswordFormatAPIRoute     = usersAPIBaseRoute + "/password-format"
+	usersListRolesAPIRoute          = usersAPIBaseRoute + "/list-roles"
+	usersPageMaxRecordLimitAPIRoute = usersAPIBaseRoute + "/page-max-record-limit"
+	usersHealthAPIRoute             = usersAPIBaseRoute + "/health"
 )
 
 func (s *UsersService) getUsersEndpointOptions() cors.Options {
@@ -89,6 +91,20 @@ func (s *UsersService) getPasswordFormatAPIOptions() cors.Options {
 		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
 	}
 }
+func (s *UsersService) getListRolesAPIOptions() cors.Options {
+	return cors.Options{
+		AllowedURL:     UI_URL,
+		APIName:        "List Roles",
+		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
+	}
+}
+func (s *UsersService) getPageMaxRecordLimitAPIOptions() cors.Options {
+	return cors.Options{
+		AllowedURL:     UI_URL,
+		APIName:        "Page Max Record Limit",
+		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
+	}
+}
 func (s *UsersService) getHealthCheckAPIOptions() cors.Options {
 	return cors.Options{
 		AllowedURL:     UI_URL,
@@ -114,6 +130,12 @@ func (s *UsersService) getLoginAPIHandler() func(http.ResponseWriter, *http.Requ
 }
 func (s *UsersService) getPasswordFormatAPIHandler() func(http.ResponseWriter, *http.Request) {
 	return cors.SendPreflightHeaders(s.getPasswordFormatAPIOptions(), s.Handler.GetPasswordFormatMessage)
+}
+func (s *UsersService) getListRolesAPIHandler() func(http.ResponseWriter, *http.Request) {
+	return cors.SendPreflightHeaders(s.getListRolesAPIOptions(), s.Handler.GetRolesList)
+}
+func (s *UsersService) getPageMaxRecordLimitAPIHandler() func(http.ResponseWriter, *http.Request) {
+	return cors.SendPreflightHeaders(s.getPageMaxRecordLimitAPIOptions(), s.Handler.GetPageMaxRecordLimit)
 }
 func (s *UsersService) getHealthCheckAPIHandler() func(http.ResponseWriter, *http.Request) {
 	return cors.SendPreflightHeaders(s.getHealthCheckAPIOptions(), s.CheckHealth)
@@ -291,13 +313,31 @@ func (s *UsersService) NewUsersServiceRouter(db *driver.DB) *mux.Router {
 	r.HandleFunc(usersDeleteAPIRoute, s.getDeleteAPIHandler()).Methods(s.getDeleteAPIOptions().AllowedMethods...)
 	// swagger:operation GET /users/password-format users getPasswordFormat
 	//
-	// Returns a string containing information about the expected format of a password.
+	// Returns an array of strings where each item is a requirement for a valid password.
 	//
 	// ---
 	// responses:
 	//   '200':
 	//     description: The password format message was returned successfully.
 	r.HandleFunc(usersPasswordFormatAPIRoute, s.getPasswordFormatAPIHandler()).Methods(s.getPasswordFormatAPIOptions().AllowedMethods...)
+	// swagger:operation GET /users/list-roles users getRolesList
+	//
+	// Returns an array of strings where each item is a valid role for a user.
+	//
+	// ---
+	// responses:
+	//   '200':
+	//     description: The roles list was returned successfully.
+	r.HandleFunc(usersListRolesAPIRoute, s.getListRolesAPIHandler()).Methods(s.getListRolesAPIOptions().AllowedMethods...)
+	// swagger:operation GET /users/page-max-records-limit users getPageMaxRecordsLimit
+	//
+	// Returns an integer that is the maximum number of records that can be returned in one page.
+	//
+	// ---
+	// responses:
+	//   '200':
+	//     description: The page max records limit was returned successfully.
+	r.HandleFunc(usersPageMaxRecordLimitAPIRoute, s.getPageMaxRecordLimitAPIHandler()).Methods(s.getPageMaxRecordLimitAPIOptions().AllowedMethods...)
 	// swagger:operation GET /users/health users checkHealth
 	//
 	// Checks the health of the service and sends a response indicating if the health check passed.

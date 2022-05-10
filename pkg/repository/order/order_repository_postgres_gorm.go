@@ -65,12 +65,13 @@ func (r *PostgresOrderRepo) Exists(id uint) (exists bool, err error) {
 	return exists, nil
 }
 
-func (r *PostgresOrderRepo) GetByID(id uint) (o *models.Order, err error) {
-	result := r.DB.First(o, id)
+func (r *PostgresOrderRepo) GetByID(id uint) (*models.Order, error) {
+	var o models.Order
+	result := r.DB.First(&o, id)
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	return o, nil
+	return &o, nil
 }
 
 func (r *PostgresOrderRepo) Create(o *models.Order) (orderId uint, itemIds []uint, err error) {
